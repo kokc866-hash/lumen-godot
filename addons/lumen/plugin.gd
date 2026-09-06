@@ -4,6 +4,7 @@ extends EditorPlugin
 const DockScene := preload("res://addons/lumen/ui/dock.tscn")
 
 var dock: Control
+var editor_dock: Node
 var log: LumenLogger
 var settings: LumenSettings
 var snapshots: LumenSnapshotStore
@@ -36,7 +37,7 @@ func _enter_tree() -> void:
 	codex = LumenCodexSubscription.new()
 	loop = LumenAgentLoop.new()
 	dock = DockScene.instantiate()
-	add_control_to_dock(DOCK_SLOT_RIGHT_UL, dock)
+	editor_dock = LumenEditor.attach_dock(self, dock)
 	openai.attach(dock, log)
 	anthropic.attach(dock, log)
 	codex.attach(dock, log, cli_auth)
@@ -83,9 +84,9 @@ func _exit_tree() -> void:
 	if mcp:
 		mcp.stop()
 	if dock:
-		remove_control_from_docks(dock)
-		dock.queue_free()
+		LumenEditor.detach_dock(self, editor_dock, dock)
 		dock = null
+		editor_dock = null
 
 
 func _on_send(text: String, mentions: PackedStringArray) -> void:
@@ -139,7 +140,7 @@ func _on_new() -> void:
 func _on_undo() -> void:
 	var result := snapshots.restore_last()
 	if bool(result.get("ok", false)):
-		get_editor_interface().get_resource_filesystem().scan()
+		LumenEditor.ei().get_resource_filesystem().scan()
 		dock.append_system("Restored %s" % str(result.get("files", [])))
 	else:
 		dock.append_system(str(result.get("error", "Undo failed.")))
