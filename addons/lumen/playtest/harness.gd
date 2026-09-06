@@ -1,8 +1,8 @@
 extends Node
 
-## Optional runtime helper. Copy into a scene as Autoload named LumenPlaytestIO
-## if you want batch input replay during Play. Lumen writes the sidecar; this
-## script only reads it. Nothing here talks to the network.
+## Autoload LumenPlaytestIO. Replay batch inputs during Play.
+## Lumen writes res://.godot/lumen_playtest.json; this script reads it once
+## and deletes it so a normal Play does not replay stale input.
 
 const SIDECAR := "res://.godot/lumen_playtest.json"
 const MIN_HOLD_FRAMES := 2
@@ -23,6 +23,7 @@ func _ready() -> void:
 	_inputs = data.get("inputs", [])
 	_duration_ms = int(data.get("duration_ms", 0))
 	_started_ms = Time.get_ticks_msec()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SIDECAR))
 	_replay()
 
 
