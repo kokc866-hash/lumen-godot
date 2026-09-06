@@ -12,7 +12,14 @@ const EXTRA := [
 	"run_scene", "stop_scene", "playtest_batch",
 	"capture_screenshot", "run_tests",
 	"set_tile_cell", "get_tile_state", "fill_tiles", "erase_tiles",
-	"generate_image", "search_godot_docs_hint",
+	"generate_image", "search_godot_docs_hint", "search_godot_docs",
+	"duplicate_node", "list_node_properties", "list_signals",
+	"connect_signal", "disconnect_signal", "add_to_group",
+	"list_animations", "play_animation", "write_shader",
+	"create_csharp_script", "import_asset",
+	"get_debugger", "get_playtest_report",
+	"update_todos", "create_primitive_mesh", "set_mesh_material", "add_csg", "instance_3d",
+	"list_mcp_servers", "mcp_call",
 ]
 
 
