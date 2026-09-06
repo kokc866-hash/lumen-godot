@@ -9,12 +9,17 @@ extends RefCounted
 signal finished(result: Dictionary)
 signal failed(message: String)
 signal probed(ok: bool, message: String)
+signal models_listed(names: PackedStringArray)
+signal stream_delta(text: String)
 
 var http: HTTPRequest
 var probe: HTTPRequest
+var stream: LumenHttpStream
 var log: LumenLogger
 var _busy := false
 var _probing := false
+var _listing := false
+var _cancelled := false
 
 
 func attach(host: Node, p_log: LumenLogger) -> void:
@@ -29,6 +34,21 @@ func attach(host: Node, p_log: LumenLogger) -> void:
 	probe.use_threads = true
 	host.add_child(probe)
 	probe.request_completed.connect(_on_probe)
+	stream = LumenHttpStream.new()
+	host.add_child(stream)
+	stream.delta.connect(func(text): stream_delta.emit(text))
+	stream.finished.connect(_on_stream_finished)
+	stream.failed.connect(_on_stream_failed)
+
+
+func cancel() -> void:
+	_cancelled = true
+	if http and _busy:
+		http.cancel_request()
+	if stream:
+		stream.cancel()
+	_busy = false
+	_listing = false
 
 
 func chat(base_url: String, api_key: String, payload: Dictionary) -> void:
@@ -36,6 +56,8 @@ func chat(base_url: String, api_key: String, payload: Dictionary) -> void:
 		failed.emit("Provider is already running a request.")
 		return
 	_busy = true
+	_listing = false
+	_cancelled = false
 	var native := _ollama_chat_url(base_url)
 	var url := native if native != "" else _openai_chat_url(base_url)
 	var body_payload := payload.duplicate(true)
@@ -48,10 +70,14 @@ func chat(base_url: String, api_key: String, payload: Dictionary) -> void:
 		headers.append("Authorization: Bearer %s" % api_key)
 	elif native != "":
 		headers.append("Authorization: Bearer ollama")
-	var err := http.request(url, headers, HTTPClient.METHOD_POST, JSON.stringify(body_payload))
-	if err != OK:
-		_busy = false
-		failed.emit("HTTP request failed: %s" % error_string(err))
+	body_payload["stream"] = true
+	if stream:
+		stream.start(url, headers, JSON.stringify(body_payload), native == "")
+	else:
+		var err := http.request(url, headers, HTTPClient.METHOD_POST, JSON.stringify(body_payload))
+		if err != OK:
+			_busy = false
+			failed.emit("HTTP request failed: %s" % error_string(err))
 
 
 func warmup(base_url: String, api_key: String, model: String, keep_alive: String = "-1", num_ctx: int = 65536) -> void:
@@ -103,6 +129,8 @@ func list_models(base_url: String, api_key: String) -> void:
 		failed.emit("Provider is already running a request.")
 		return
 	_busy = true
+	_listing = true
+	_cancelled = false
 	var url := _openai_models_url(base_url)
 	var headers := PackedStringArray(["Content-Type: application/json"])
 	if api_key != "":
@@ -110,11 +138,18 @@ func list_models(base_url: String, api_key: String) -> void:
 	var err := http.request(url, headers, HTTPClient.METHOD_GET)
 	if err != OK:
 		_busy = false
+		_listing = false
 		failed.emit("Model list failed: %s" % error_string(err))
 
 
 func _on_completed(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	var listing := _listing
+	var cancelled := _cancelled
 	_busy = false
+	_listing = false
+	_cancelled = false
+	if cancelled:
+		return
 	if result != HTTPRequest.RESULT_SUCCESS:
 		if result == HTTPRequest.RESULT_TIMEOUT:
 			failed.emit("Timed out waiting for the local model. Large models need minutes to load. Keep the model resident (keep_alive -1) and retry.")
@@ -129,10 +164,23 @@ func _on_completed(result: int, code: int, _headers: PackedStringArray, body: Pa
 			detail = str(parsed.get("error", parsed))
 		failed.emit("Provider HTTP %d: %s" % [code, LumenJson.clamp_text(str(detail), 800)])
 		return
+	if listing:
+		models_listed.emit(_model_names(parsed))
+		return
 	if typeof(parsed) != TYPE_DICTIONARY:
 		failed.emit("Provider returned non-JSON.")
 		return
 	finished.emit(_as_openai(parsed as Dictionary))
+
+
+func _on_stream_finished(result: Dictionary) -> void:
+	_busy = false
+	finished.emit(_as_openai(result) if result.has("choices") else result)
+
+
+func _on_stream_failed(message: String) -> void:
+	_busy = false
+	failed.emit(message)
 
 
 func _on_probe(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
@@ -303,6 +351,23 @@ func _origin(url: String) -> String:
 	if slash < 0:
 		return trimmed
 	return trimmed.substr(0, scheme + 3 + slash)
+
+
+func _model_names(parsed: Variant) -> PackedStringArray:
+	var out := PackedStringArray()
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return out
+	var rows: Variant = parsed.get("models", parsed.get("data", []))
+	if typeof(rows) != TYPE_ARRAY:
+		return out
+	for row in rows:
+		if typeof(row) == TYPE_DICTIONARY:
+			var id := str(row.get("name", row.get("id", row.get("model", ""))))
+			if id != "":
+				out.append(id)
+		elif str(row) != "":
+			out.append(str(row))
+	return out
 
 
 static func _is_loopback(url: String) -> bool:
