@@ -5,11 +5,14 @@ extends RefCounted
 signal changed
 
 const DEFAULTS := {
-	"provider": "ollama",
-	"base_url": "http://127.0.0.1:11434/v1",
+	"provider": "",
+	"base_url": "",
 	"model": "",
 	"temperature": 0.2,
-	"max_tokens": 4096,
+	"max_tokens": 8192,
+	"num_ctx": 65536,
+	"tool_result_chars": 12000,
+	"keep_alive": "30m",
 	"plan_mode": false,
 	"auto_approve_readonly": true,
 	"mcp_enabled": false,
@@ -75,7 +78,7 @@ func image_api_key() -> String:
 
 
 func provider_id() -> String:
-	return str(get_value("provider", "ollama"))
+	return str(get_value("provider", ""))
 
 
 func base_url() -> String:

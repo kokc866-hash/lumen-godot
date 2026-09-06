@@ -13,7 +13,7 @@ signal cli_use(kind: String)
 signal test_pressed
 
 const PROVIDERS := [
-	{"id": "ollama", "label": "Ollama", "url": "http://127.0.0.1:11434/v1", "model": "qwen2.5-coder:7b"},
+	{"id": "ollama", "label": "Ollama", "url": "http://127.0.0.1:11434/v1", "model": "qwen2.5-coder:32b"},
 	{"id": "lmstudio", "label": "LM Studio", "url": "http://127.0.0.1:1234/v1", "model": ""},
 	{"id": "openai", "label": "OpenAI", "url": "https://api.openai.com/v1", "model": "gpt-4.1"},
 	{"id": "grok", "label": "Grok", "url": "https://api.x.ai/v1", "model": "grok-4.5"},
@@ -44,6 +44,8 @@ var settings: LumenSettings
 var cli: LumenCliAuth
 var _busy := false
 var _seeding := false
+var editor_scene: String = ""
+var editor_selected: String = ""
 
 
 func bind_settings(p_settings: LumenSettings) -> void:
@@ -97,6 +99,8 @@ func _ready() -> void:
 	composer.gui_input.connect(_on_composer_input)
 	plan_box.visible = false
 	_seed_providers()
+	if has_node("%InsertContext"):
+		%InsertContext.pressed.connect(_on_insert_context)
 	append_system("Local-first agent. Open Connection or CLI sessions, then describe a change.")
 
 
@@ -104,10 +108,13 @@ func _seed_providers() -> void:
 	if provider_option.item_count > 0:
 		return
 	_seeding = true
+	provider_option.add_item("", 0)
+	provider_option.set_item_metadata(0, "")
 	for i in PROVIDERS.size():
 		var row: Dictionary = PROVIDERS[i]
-		provider_option.add_item(str(row["label"]), i)
-		provider_option.set_item_metadata(i, str(row["id"]))
+		var idx := i + 1
+		provider_option.add_item(str(row["label"]), idx)
+		provider_option.set_item_metadata(idx, str(row["id"]))
 	_seeding = false
 
 
@@ -120,6 +127,8 @@ func _load_fields() -> void:
 	key_edit.text = settings.api_key()
 	image_url_edit.text = str(settings.get_value("image_base_url", ""))
 	mcp_port_edit.text = str(settings.get_value("mcp_port", 8765))
+	if has_node("%CtxEdit"):
+		%CtxEdit.text = str(settings.get_value("num_ctx", 65536))
 	plan_check.set_pressed_no_signal(settings.plan_mode())
 	mcp_check.set_pressed_no_signal(bool(settings.get_value("mcp_enabled", false)))
 	_apply_provider_visibility()
@@ -137,6 +146,9 @@ func _save_fields(announce: bool = true) -> void:
 	settings.set_value("image_base_url", image_url_edit.text.strip_edges())
 	var port_text := mcp_port_edit.text.strip_edges()
 	settings.set_value("mcp_port", int(port_text) if port_text.is_valid_int() else 8765)
+	if has_node("%CtxEdit"):
+		var ctx_text: String = %CtxEdit.text.strip_edges()
+		settings.set_value("num_ctx", int(ctx_text) if ctx_text.is_valid_int() else 65536)
 	settings.set_api_key(key_edit.text.strip_edges())
 	settings_changed.emit()
 	if announce:
@@ -146,7 +158,12 @@ func _save_fields(announce: bool = true) -> void:
 func _on_provider(index: int) -> void:
 	if _seeding:
 		return
-	var row: Dictionary = PROVIDERS[index] if index >= 0 and index < PROVIDERS.size() else {}
+	var id := str(provider_option.get_item_metadata(index))
+	var row: Dictionary = {}
+	for item in PROVIDERS:
+		if str(item["id"]) == id:
+			row = item
+			break
 	var url := str(row.get("url", ""))
 	if url != "":
 		base_url_edit.text = url
@@ -171,7 +188,7 @@ func _refresh_conn_chip() -> void:
 			break
 	%ConnChip.text = label
 	if has_node("%ConnFold"):
-		%ConnFold.title = "Connection  ·  %s" % label
+		%ConnFold.title = "Connection" if label == "" else "Connection  ·  %s" % label
 
 
 func _apply_provider_visibility() -> void:
@@ -195,9 +212,8 @@ func _apply_provider_visibility() -> void:
 
 func _provider_id() -> String:
 	if provider_option.selected < 0:
-		return "ollama"
-	var meta: Variant = provider_option.get_item_metadata(provider_option.selected)
-	return str(meta) if str(meta) != "" else "custom"
+		return ""
+	return str(provider_option.get_item_metadata(provider_option.selected))
 
 
 func _select_provider(name: String) -> void:
@@ -368,3 +384,75 @@ func _accent_hex() -> String:
 
 func _esc(text: String) -> String:
 	return text.replace("[", "[lb]").replace("]", "[rb]")
+
+
+func set_editor_context(scene_path: String, selected_paths: PackedStringArray) -> void:
+	editor_scene = scene_path
+	editor_selected = selected_paths[0] if selected_paths.size() > 0 else ""
+	if not has_node("%ContextBar"):
+		return
+	var bits: PackedStringArray = PackedStringArray()
+	if editor_scene != "":
+		bits.append(editor_scene)
+	if editor_selected != "":
+		bits.append(editor_selected)
+	%ContextBar.visible = bits.size() > 0
+	if has_node("%ContextLabel"):
+		%ContextLabel.text = " · ".join(bits)
+
+
+func focus_composer() -> void:
+	composer.grab_focus()
+
+
+func insert_mention(path: String) -> void:
+	var token := path.strip_edges()
+	if token == "":
+		return
+	if not token.begins_with("@"):
+		if not (token.begins_with("res://") or token.begins_with(".") or token.begins_with("/")):
+			token = "res://" + token.lstrip("/")
+		token = "@" + token
+	var cur := composer.text
+	if cur != "" and not cur.ends_with(" ") and not cur.ends_with("\n"):
+		composer.text = cur + " " + token + " "
+	else:
+		composer.text = cur + token + " "
+	composer.grab_focus()
+	var line := composer.get_line_count() - 1
+	composer.set_caret_line(line)
+	composer.set_caret_column(composer.get_line(line).length())
+
+
+func _on_insert_context() -> void:
+	if editor_selected != "":
+		insert_mention(editor_selected)
+	elif editor_scene != "":
+		insert_mention(editor_scene)
+
+
+func _can_drop_data(_at: Vector2, data: Variant) -> bool:
+	return _drop_paths(data).size() > 0
+
+
+func _drop_data(_at: Vector2, data: Variant) -> void:
+	for path in _drop_paths(data):
+		insert_mention(str(path))
+
+
+func _drop_paths(data: Variant) -> PackedStringArray:
+	var out := PackedStringArray()
+	if typeof(data) != TYPE_DICTIONARY:
+		return out
+	var kind := str(data.get("type", ""))
+	if kind == "files" or kind == "files_and_dirs":
+		for f in data.get("files", []):
+			out.append(str(f))
+	elif kind == "nodes":
+		for n in data.get("nodes", []):
+			out.append(str(n))
+	elif kind == "resource":
+		var res: Variant = data.get("resource")
+		if res is Resource and str(res.resource_path) != "":
+			out.append(str(res.resource_path))
+	return out

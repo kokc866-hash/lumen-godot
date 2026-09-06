@@ -36,7 +36,7 @@ theme_override_font_sizes/font_size = 15
 [node name="ConnChip" type="Label" parent="Root/Header"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Ollama"
+text = ""
 theme_override_font_sizes/font_size = 12
 theme_override_colors/font_color = Color(0.604, 0.678, 0.761, 1)
 
@@ -51,6 +51,28 @@ unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Restore files and the edited scene from the last agent turn."
 text = "Undo"
+
+[node name="ContextBar" type="HBoxContainer" parent="Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ContextLabel" type="Label" parent="Root/ContextBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.604, 0.678, 0.761, 1)
+text = ""
+clip_text = true
+autowrap_mode = 0
+
+[node name="InsertContext" type="Button" parent="Root/ContextBar"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Insert the selected node or scene path into the composer as @mention."
+text = "Insert @"
 
 [node name="ConnFold" type="FoldableContainer" parent="Root"]
 unique_name_in_owner = true

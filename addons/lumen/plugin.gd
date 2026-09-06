@@ -87,10 +87,13 @@ func _enter_tree() -> void:
 		mcp.start()
 	_ensure_playtest_autoload()
 	dock.refresh_cli_status()
+	_connect_editor()
+	_push_editor_context()
 	log.info("Lumen entered the editor.")
 
 
 func _exit_tree() -> void:
+	_disconnect_editor()
 	if mcp:
 		mcp.stop()
 	if dock:
@@ -99,7 +102,63 @@ func _exit_tree() -> void:
 		editor_dock = null
 
 
+func _unhandled_key_input(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	if event.keycode != KEY_L or not event.ctrl_pressed or not event.shift_pressed:
+		return
+	LumenEditor.focus_dock(editor_dock)
+	if dock:
+		dock.focus_composer()
+	get_viewport().set_input_as_handled()
+
+
+func _connect_editor() -> void:
+	if not scene_changed.is_connected(_on_scene_changed):
+		scene_changed.connect(_on_scene_changed)
+	var selection := EditorInterface.get_selection()
+	if selection and not selection.selection_changed.is_connected(_on_editor_selection):
+		selection.selection_changed.connect(_on_editor_selection)
+
+
+func _disconnect_editor() -> void:
+	if scene_changed.is_connected(_on_scene_changed):
+		scene_changed.disconnect(_on_scene_changed)
+	var selection := EditorInterface.get_selection()
+	if selection and selection.selection_changed.is_connected(_on_editor_selection):
+		selection.selection_changed.disconnect(_on_editor_selection)
+
+
+func _on_scene_changed(_scene: Node) -> void:
+	_push_editor_context()
+
+
+func _on_editor_selection() -> void:
+	_push_editor_context()
+
+
+func _push_editor_context() -> void:
+	if dock == null:
+		return
+	var root := EditorInterface.get_edited_scene_root()
+	var scene_path := root.scene_file_path if root else ""
+	var paths := PackedStringArray()
+	var selection := EditorInterface.get_selection()
+	if selection:
+		for node in selection.get_selected_nodes():
+			if node == null:
+				continue
+			if root:
+				paths.append(str(root.get_path_to(node)))
+			else:
+				paths.append(str(node.name))
+	dock.set_editor_context(scene_path, paths)
+
+
 func _on_send(text: String, mentions: PackedStringArray) -> void:
+	if settings.provider_id() == "":
+		dock.append_system("Choose a provider in Connection first.")
+		return
 	if text.begins_with("/"):
 		_slash(text)
 		return

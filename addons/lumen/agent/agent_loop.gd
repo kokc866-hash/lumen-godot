@@ -37,6 +37,7 @@ var _turn_id := ""
 var _pending_calls: Array = []
 var _approvals: Dictionary = {}
 var _always: Dictionary = {}
+var _continued_length := false
 
 
 func setup(
@@ -109,6 +110,7 @@ func submit_user(text: String, attachments: Array = []) -> void:
 		})
 	messages.append({"role": "user", "content": payload})
 	_turn_id = snapshots.begin_turn(text.substr(0, 80))
+	_continued_length = false
 	_save_persisted()
 	running = true
 	_step()
@@ -146,8 +148,7 @@ func reject_plan() -> void:
 
 
 func _step() -> void:
-	if messages.size() > 80:
-		_compact()
+	_compact()
 	status.emit("Talking to %s…" % settings.provider_id())
 	var tools := registry.openai_tools()
 	var provider := settings.provider_id()
@@ -159,7 +160,7 @@ func _step() -> void:
 			settings.model(),
 			messages,
 			tools,
-			int(settings.get_value("max_tokens", 4096)),
+			int(settings.get_value("max_tokens", 8192)),
 			float(settings.get_value("temperature", 0.2))
 		)
 		return
@@ -186,7 +187,7 @@ func _step() -> void:
 			system,
 			rest,
 			tools,
-			int(settings.get_value("max_tokens", 4096)),
+			int(settings.get_value("max_tokens", 8192)),
 			float(settings.get_value("temperature", 0.2)),
 			oauth
 		)
@@ -205,16 +206,18 @@ func _step() -> void:
 			settings.model() if settings.model() != "" else "gemini-2.5-flash",
 			messages,
 			tools,
-			int(settings.get_value("max_tokens", 4096)),
+			int(settings.get_value("max_tokens", 8192)),
 			float(settings.get_value("temperature", 0.2))
 		)
 		return
 	var payload := {
 		"model": settings.model(),
 		"temperature": float(settings.get_value("temperature", 0.2)),
-		"max_tokens": int(settings.get_value("max_tokens", 4096)),
+		"max_tokens": int(settings.get_value("max_tokens", 8192)),
 		"messages": messages,
 		"tools": tools,
+		"num_ctx": int(settings.get_value("num_ctx", 65536)),
+		"keep_alive": str(settings.get_value("keep_alive", "30m")),
 	}
 	openai.chat(settings.base_url(), settings.api_key(), payload)
 
@@ -237,10 +240,17 @@ func _on_openai(result: Dictionary) -> void:
 		_fail("Provider returned no choices.")
 		return
 	var message: Dictionary = choices[0].get("message", {})
+	var finish := str(choices[0].get("finish_reason", ""))
+	var text := str(message.get("content", ""))
+	var tool_calls: Array = message.get("tool_calls", [])
+	if tool_calls.is_empty():
+		tool_calls = LumenToolParse.from_content(text)
+		if not tool_calls.is_empty():
+			message["tool_calls"] = tool_calls
+			text = ""
+			message["content"] = ""
 	messages.append(message)
 	_save_persisted()
-	var tool_calls: Array = message.get("tool_calls", [])
-	var text := str(message.get("content", ""))
 	if text != "":
 		assistant_delta.emit(text)
 		if settings.plan_mode() and not plan.has_approval() and _looks_like_plan(text) and tool_calls.is_empty():
@@ -250,6 +260,14 @@ func _on_openai(result: Dictionary) -> void:
 			plan_ready.emit(parsed)
 			return
 	if tool_calls.is_empty():
+		if finish == "length" and not _continued_length:
+			_continued_length = true
+			messages.append({
+				"role": "user",
+				"content": "Your last reply hit max_tokens. Continue from there, or call a tool with a smaller payload.",
+			})
+			_step()
+			return
 		running = false
 		turn_done.emit(text if text != "" else "(done)")
 		return
@@ -295,7 +313,9 @@ func _flush_approvals() -> void:
 		var args := _parse_args(str(fn.get("arguments", "{}")))
 		var allowed := bool(_approvals.get(id, false))
 		var result: Dictionary
-		if not allowed:
+		if args.get("_parse_error", false):
+			result = {"ok": false, "error": "Tool arguments were truncated or invalid JSON. Retry with a smaller payload."}
+		elif not allowed:
 			result = {"ok": false, "error": "User rejected this tool call."}
 		else:
 			if name in WRITE_TOOLS:
@@ -305,10 +325,11 @@ func _flush_approvals() -> void:
 					snapshots.capture(_turn_id, str(args.get("from", "")))
 				_capture_edited_scene()
 			result = registry.run(name, args)
+		var cap := int(settings.get_value("tool_result_chars", 12000))
 		messages.append({
 			"role": "tool",
 			"tool_call_id": id,
-			"content": JSON.stringify(result),
+			"content": LumenJson.clamp_text(JSON.stringify(result), cap),
 		})
 	_pending_calls.clear()
 	_step()
@@ -316,7 +337,9 @@ func _flush_approvals() -> void:
 
 func _parse_args(raw: String) -> Dictionary:
 	var parsed: Variant = JSON.parse_string(raw if raw != "" else "{}")
-	return parsed if typeof(parsed) == TYPE_DICTIONARY else {}
+	if typeof(parsed) == TYPE_DICTIONARY:
+		return parsed
+	return {"_parse_error": true}
 
 
 func _looks_like_plan(text: String) -> bool:
@@ -346,16 +369,33 @@ func _count_assistant_turns() -> int:
 
 
 func _compact() -> void:
+	var tool_cap := int(settings.get_value("tool_result_chars", 12000))
+	var keep := 20
+	var budget := int(settings.get_value("num_ctx", 65536)) * 3
 	var system: Array = []
 	var tail: Array = []
 	for msg in messages:
-		if str(msg.get("role", "")) == "system":
-			system.append(msg)
+		var copy: Dictionary = (msg as Dictionary).duplicate(true)
+		if str(copy.get("role", "")) == "tool":
+			copy["content"] = LumenJson.clamp_text(str(copy.get("content", "")), tool_cap)
+		if str(copy.get("role", "")) == "system":
+			system.append(copy)
 		else:
-			tail.append(msg)
-	if tail.size() > 24:
-		tail = tail.slice(tail.size() - 24)
-	messages = system + [{"role": "user", "content": "(Earlier turns were trimmed to stay inside context.)"}] + tail
+			tail.append(copy)
+	if tail.size() > keep:
+		messages = system + [{"role": "user", "content": "(Earlier turns were trimmed to stay inside the local context window.)"}] + tail.slice(tail.size() - keep)
+	else:
+		messages = system + tail
+	var total := 0
+	for msg in messages:
+		total += str(msg.get("content", "")).length()
+	if total <= budget:
+		return
+	var tighter := mini(12, tail.size())
+	if tail.size() > tighter:
+		tail = tail.slice(tail.size() - tighter)
+		messages = system + [{"role": "user", "content": "(Context compacted for the local model.)"}] + tail
+
 
 
 func _capture_edited_scene() -> void:

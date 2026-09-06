@@ -16,7 +16,7 @@ var _busy := false
 func attach(host: Node, p_log: LumenLogger) -> void:
 	log = p_log
 	http = HTTPRequest.new()
-	http.timeout = 180
+	http.timeout = 600
 	http.use_threads = true
 	host.add_child(http)
 	http.request_completed.connect(_on_completed)
@@ -30,12 +30,26 @@ func chat(base_url: String, api_key: String, payload: Dictionary) -> void:
 	var url := base_url.trim_suffix("/")
 	if not url.ends_with("/chat/completions"):
 		url += "/chat/completions"
+	var body_payload := payload.duplicate(true)
+	if _is_loopback(url):
+		var opts: Dictionary = body_payload.get("options", {})
+		if typeof(opts) != TYPE_DICTIONARY:
+			opts = {}
+		if body_payload.has("num_ctx"):
+			opts["num_ctx"] = int(body_payload.get("num_ctx"))
+			body_payload.erase("num_ctx")
+		if body_payload.has("max_tokens") and not opts.has("num_predict"):
+			opts["num_predict"] = int(body_payload.get("max_tokens"))
+		if not opts.is_empty():
+			body_payload["options"] = opts
+		if not body_payload.has("keep_alive"):
+			body_payload["keep_alive"] = "30m"
 	var headers := PackedStringArray([
 		"Content-Type: application/json",
 	])
 	if api_key != "":
 		headers.append("Authorization: Bearer %s" % api_key)
-	var body := JSON.stringify(payload)
+	var body := JSON.stringify(body_payload)
 	var err := http.request(url, headers, HTTPClient.METHOD_POST, body)
 	if err != OK:
 		_busy = false
@@ -80,3 +94,8 @@ func _on_completed(result: int, code: int, _headers: PackedStringArray, body: Pa
 		failed.emit("Provider returned non-JSON.")
 		return
 	finished.emit(parsed)
+
+
+static func _is_loopback(url: String) -> bool:
+	var lower := url.to_lower()
+	return lower.find("127.0.0.1") >= 0 or lower.find("localhost") >= 0 or lower.find("[::1]") >= 0

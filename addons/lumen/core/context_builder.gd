@@ -19,6 +19,7 @@ func snapshot() -> Dictionary:
 		"project_path": LumenPaths.project_root(),
 		"edited_scene": root.scene_file_path if root else "",
 		"edited_root": root.name if root else "",
+		"selected_nodes": _selected_paths(ei, root),
 		"open_scripts": _open_scripts(ei),
 		"filesystem_ready": fs.is_scanning() == false if fs else true,
 	}
@@ -35,21 +36,40 @@ func _open_scripts(ei: EditorInterface) -> Array:
 	return out
 
 
+func _selected_paths(ei: EditorInterface, root: Node) -> Array:
+	var out: Array = []
+	var selection := ei.get_selection()
+	if selection == null:
+		return out
+	for node in selection.get_selected_nodes():
+		if node == null:
+			continue
+		if root:
+			out.append(str(root.get_path_to(node)))
+		else:
+			out.append(str(node.get_path()))
+	return out
+
+
 func system_preamble(settings: LumenSettings, skills: LumenSkillLoader) -> String:
 	var ctx := snapshot()
 	var agents := LumenAgentsMd.load_instructions()
 	var parts: PackedStringArray = PackedStringArray([
-		"You are Lumen, a local-first AI agent that lives inside the Godot editor.",
-		"You edit this project through tools. You never invent file contents you have not read.",
-		"Prefer the smallest change that works. Do not add multiplayer relays, accounts, or billing.",
-		"When a decision is the author's, ask instead of guessing.",
-		"Plan mode: if the user asked for a plan, output the plan first and wait. Do not call write tools until approved.",
-		"Godot version: %s" % JSON.stringify(ctx.get("godot", {})),
-		"Project: %s" % ctx.get("project_name", ""),
-		"Edited scene: %s (%s)" % [ctx.get("edited_scene", ""), ctx.get("edited_root", "")],
-		"Open scripts: %s" % ", ".join(PackedStringArray(ctx.get("open_scripts", []))),
-		"Available skills (load with load_skill before following them):\n%s" % skills.describe_for_prompt(),
+		"You are Lumen, a Godot editor agent. Edit through tools only. Read a file before you change it. Never invent unread contents.",
+		"Use the native tool_calls channel. Do not wrap calls in markdown. Prefer a few focused tools per step. Smallest patch that works.",
+		"If a previous tool result was truncated, read a narrower range instead of guessing.",
+		"Plan mode: write a plan and wait. Do not call write tools until the user approves.",
+		"Godot %s. Project %s. Edited scene %s (%s). Selected: %s. Open scripts: %s" % [
+			str((ctx.get("godot", {}) as Dictionary).get("string", "4.x")) if typeof(ctx.get("godot", {})) == TYPE_DICTIONARY else "4.x",
+			str(ctx.get("project_name", "")),
+			str(ctx.get("edited_scene", "")),
+			str(ctx.get("edited_root", "")),
+			", ".join(PackedStringArray(ctx.get("selected_nodes", []))),
+			", ".join(PackedStringArray(ctx.get("open_scripts", []))),
+		],
+		"Available skills (load_skill before following them):\n%s" % skills.describe_for_prompt(),
 	])
 	if agents != "":
-		parts.append("Project instructions from AGENTS.md:\n%s" % LumenJson.clamp_text(agents, 8000))
+		parts.append("AGENTS.md:\n%s" % LumenJson.clamp_text(agents, 4000))
 	return "\n\n".join(parts)
+

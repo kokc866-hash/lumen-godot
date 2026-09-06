@@ -300,7 +300,10 @@ func read_file(args: Dictionary) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {"ok": false, "error": "Missing file: %s" % path}
 	var text := LumenJson.read_text(path)
-	return {"ok": true, "path": path, "content": LumenJson.clamp_text(text, 40_000)}
+	var cap := 12000
+	if settings:
+		cap = int(settings.get_value("tool_result_chars", 12000))
+	return {"ok": true, "path": path, "content": LumenJson.clamp_text(text, cap)}
 
 
 func list_dir(args: Dictionary) -> Dictionary:
