@@ -14,7 +14,7 @@ const WRITE_TOOLS := [
 	"write_file", "edit_file", "delete_file", "move_path",
 	"create_node", "set_node_property", "delete_node", "reparent_node",
 	"set_project_setting", "set_tile_cell", "fill_tiles", "erase_tiles",
-	"generate_image", "apply_plan",
+	"generate_image", "attach_script", "open_scene", "save_scene",
 ]
 
 var plugin: EditorPlugin
@@ -25,6 +25,7 @@ var plan: LumenPlanMode
 var openai: LumenOpenAICompatible
 var anthropic: LumenAnthropic
 var codex: LumenCodexSubscription
+var gemini: LumenGemini
 var cli: LumenCliAuth
 var log: LumenLogger
 var context: LumenContextBuilder
@@ -66,14 +67,22 @@ func setup(
 	if not anthropic.finished.is_connected(_on_openai):
 		anthropic.finished.connect(_on_openai)
 		anthropic.failed.connect(_fail)
+	_always.clear()
+	for name in settings.get_value("always_tools", []):
+		_always[str(name)] = true
 
 
-func bind_cli(p_cli: LumenCliAuth, p_codex: LumenCodexSubscription) -> void:
+func bind_cli(p_cli: LumenCliAuth, p_codex: LumenCodexSubscription, p_gemini: LumenGemini = null) -> void:
 	cli = p_cli
 	codex = p_codex
+	gemini = p_gemini
 	if codex and not codex.finished.is_connected(_on_openai):
 		codex.finished.connect(_on_openai)
 		codex.failed.connect(_fail)
+	if gemini and not gemini.finished.is_connected(_on_openai):
+		gemini.finished.connect(_on_openai)
+		gemini.failed.connect(_fail)
+	load_persisted()
 
 
 func reset_chat() -> void:
@@ -81,6 +90,7 @@ func reset_chat() -> void:
 	plan.clear()
 	_pending_calls.clear()
 	_approvals.clear()
+	_save_persisted()
 
 
 func submit_user(text: String, attachments: Array = []) -> void:
@@ -99,6 +109,7 @@ func submit_user(text: String, attachments: Array = []) -> void:
 		})
 	messages.append({"role": "user", "content": payload})
 	_turn_id = snapshots.begin_turn(text.substr(0, 80))
+	_save_persisted()
 	running = true
 	_step()
 
@@ -115,6 +126,10 @@ func reject_tool(call_id: String) -> void:
 
 func always_tool(name: String) -> void:
 	_always[name] = true
+	var stored: Array = settings.get_value("always_tools", [])
+	if name not in stored:
+		stored.append(name)
+		settings.set_value("always_tools", stored)
 
 
 func approve_plan() -> void:
@@ -177,7 +192,22 @@ func _step() -> void:
 		)
 		return
 	if provider == "gemini_cli":
-		_fail("Gemini CLI login is stored, but Lumen talks to Gemini through an API key provider. Switch to custom + your Gemini OpenAI-compatible endpoint, or use Codex / Claude CLI sessions.")
+		if gemini == null or cli == null:
+			_fail("Gemini provider is not attached.")
+			return
+		var creds := cli.load_gemini_token()
+		if not bool(creds.get("ok", false)):
+			_fail("No Gemini session. Click Login Gemini or set GEMINI_API_KEY.")
+			return
+		gemini.chat(
+			str(creds.get("access_token", "")),
+			str(creds.get("api_key", "")),
+			settings.model() if settings.model() != "" else "gemini-2.5-flash",
+			messages,
+			tools,
+			int(settings.get_value("max_tokens", 4096)),
+			float(settings.get_value("temperature", 0.2))
+		)
 		return
 	var payload := {
 		"model": settings.model(),
@@ -189,6 +219,18 @@ func _step() -> void:
 	openai.chat(settings.base_url(), settings.api_key(), payload)
 
 
+func load_persisted() -> void:
+	var path := LumenPaths.CHAT_DIR.path_join("current.json")
+	var stored: Variant = LumenJson.read_file(path, [])
+	if typeof(stored) == TYPE_ARRAY and not stored.is_empty():
+		messages = stored
+
+
+func _save_persisted() -> void:
+	LumenPaths.ensure_dirs()
+	LumenJson.write_file(LumenPaths.CHAT_DIR.path_join("current.json"), messages)
+
+
 func _on_openai(result: Dictionary) -> void:
 	var choices: Array = result.get("choices", [])
 	if choices.is_empty():
@@ -196,6 +238,7 @@ func _on_openai(result: Dictionary) -> void:
 		return
 	var message: Dictionary = choices[0].get("message", {})
 	messages.append(message)
+	_save_persisted()
 	var tool_calls: Array = message.get("tool_calls", [])
 	var text := str(message.get("content", ""))
 	if text != "":
@@ -255,8 +298,12 @@ func _flush_approvals() -> void:
 		if not allowed:
 			result = {"ok": false, "error": "User rejected this tool call."}
 		else:
-			if name in WRITE_TOOLS and args.has("path"):
-				snapshots.capture(_turn_id, str(args.get("path", "")))
+			if name in WRITE_TOOLS:
+				if args.has("path"):
+					snapshots.capture(_turn_id, str(args.get("path", "")))
+				if args.has("from"):
+					snapshots.capture(_turn_id, str(args.get("from", "")))
+				_capture_edited_scene()
 			result = registry.run(name, args)
 		messages.append({
 			"role": "tool",
@@ -309,6 +356,17 @@ func _compact() -> void:
 	if tail.size() > 24:
 		tail = tail.slice(tail.size() - 24)
 	messages = system + [{"role": "user", "content": "(Earlier turns were trimmed to stay inside context.)"}] + tail
+
+
+func _capture_edited_scene() -> void:
+	var root := EditorInterface.get_edited_scene_root()
+	if root == null:
+		return
+	var path := root.scene_file_path
+	if path == "":
+		return
+	EditorInterface.save_scene()
+	snapshots.capture(_turn_id, path)
 
 
 func _fail(message: String) -> void:
