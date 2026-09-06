@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://addons/lumen/ui/dock.gd" id="1"]
 
 [node name="LumenDock" type="Control"]
-custom_minimum_size = Vector2(360, 480)
+custom_minimum_size = Vector2(320, 420)
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -18,157 +18,191 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 8.0
-offset_top = 8.0
+offset_top = 6.0
 offset_right = -8.0
-offset_bottom = -8.0
-theme_override_constants/separation = 8
+offset_bottom = -6.0
+theme_override_constants/separation = 6
 
 [node name="Header" type="HBoxContainer" parent="Root"]
 layout_mode = 2
+theme_override_constants/separation = 6
 
 [node name="Title" type="Label" parent="Root/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Lumen"
+theme_override_font_sizes/font_size = 15
 
 [node name="NewButton" type="Button" parent="Root/Header"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "/new"
+tooltip_text = "Start a new chat. Drops the saved transcript."
+text = "New"
 
 [node name="UndoButton" type="Button" parent="Root/Header"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Undo turn"
+tooltip_text = "Restore files and the edited scene from the last agent turn."
+text = "Undo"
 
-[node name="SettingsLabel" type="Label" parent="Root"]
+[node name="ConnFold" type="FoldableContainer" parent="Root"]
+unique_name_in_owner = true
 layout_mode = 2
-text = "Provider"
+title = "Connection"
+folded = true
 
-[node name="SettingsGrid" type="GridContainer" parent="Root"]
+[node name="ConnInner" type="VBoxContainer" parent="Root/ConnFold"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="SettingsGrid" type="GridContainer" parent="Root/ConnFold/ConnInner"]
 layout_mode = 2
 columns = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 4
 
-[node name="PLabel" type="Label" parent="Root/SettingsGrid"]
+[node name="PLabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
 layout_mode = 2
 text = "Provider"
 
-[node name="ProviderOption" type="OptionButton" parent="Root/SettingsGrid"]
+[node name="ProviderOption" type="OptionButton" parent="Root/ConnFold/ConnInner/SettingsGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+fit_to_longest_item = false
 
-[node name="ULabel" type="Label" parent="Root/SettingsGrid"]
+[node name="ULabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
+unique_name_in_owner = true
 layout_mode = 2
 text = "Base URL"
 
-[node name="BaseUrlEdit" type="LineEdit" parent="Root/SettingsGrid"]
+[node name="BaseUrlEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 placeholder_text = "http://127.0.0.1:11434/v1"
 
-[node name="MLabel" type="Label" parent="Root/SettingsGrid"]
+[node name="MLabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
 layout_mode = 2
 text = "Model"
 
-[node name="ModelEdit" type="LineEdit" parent="Root/SettingsGrid"]
+[node name="ModelEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
 unique_name_in_owner = true
 layout_mode = 2
-placeholder_text = "qwen2.5-coder:7b"
+placeholder_text = "model id"
 
-[node name="KLabel" type="Label" parent="Root/SettingsGrid"]
+[node name="KLabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
+unique_name_in_owner = true
 layout_mode = 2
 text = "API key"
 
-[node name="KeyEdit" type="LineEdit" parent="Root/SettingsGrid"]
+[node name="KeyEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 secret = true
-placeholder_text = "stored in user://"
+placeholder_text = "user:// secrets"
 
-[node name="ILabel" type="Label" parent="Root/SettingsGrid"]
+[node name="ILabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
 layout_mode = 2
 text = "Image URL"
 
-[node name="ImageUrlEdit" type="LineEdit" parent="Root/SettingsGrid"]
+[node name="ImageUrlEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
 unique_name_in_owner = true
 layout_mode = 2
-placeholder_text = "optional /v1 image endpoint"
+placeholder_text = "optional /v1 images"
 
-[node name="PortLabel" type="Label" parent="Root/SettingsGrid"]
+[node name="PortLabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
 layout_mode = 2
 text = "MCP port"
 
-[node name="McpPortEdit" type="LineEdit" parent="Root/SettingsGrid"]
+[node name="McpPortEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
 unique_name_in_owner = true
 layout_mode = 2
 placeholder_text = "8765"
 
-[node name="PlanCheck" type="CheckBox" parent="Root"]
+[node name="FlagsRow" type="HBoxContainer" parent="Root/ConnFold/ConnInner"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="PlanCheck" type="CheckBox" parent="Root/ConnFold/ConnInner/FlagsRow"]
 unique_name_in_owner = true
 layout_mode = 2
+tooltip_text = "Write tools wait until you approve a plan."
 text = "Plan mode"
 
-[node name="McpCheck" type="CheckBox" parent="Root"]
+[node name="McpCheck" type="CheckBox" parent="Root/ConnFold/ConnInner/FlagsRow"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Local MCP on 127.0.0.1:8765"
+tooltip_text = "JSON-RPC on 127.0.0.1 only."
+text = "Local MCP"
 
-[node name="CliLabel" type="Label" parent="Root"]
+[node name="SaveSettings" type="Button" parent="Root/ConnFold/ConnInner"]
+unique_name_in_owner = true
 layout_mode = 2
-text = "Existing CLI subscriptions"
+text = "Save connection"
 
-[node name="CliStatus" type="Label" parent="Root"]
+[node name="CliFold" type="FoldableContainer" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+title = "CLI sessions"
+folded = true
+
+[node name="CliInner" type="VBoxContainer" parent="Root/CliFold"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="CliStatus" type="Label" parent="Root/CliFold/CliInner"]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 3
-text = "Scan to detect Codex / Claude / Gemini sessions."
+text = "Scan to detect Codex, Claude Code, or Gemini CLI sessions."
 
-[node name="CliRow" type="HBoxContainer" parent="Root"]
+[node name="CliRow" type="HFlowContainer" parent="Root/CliFold/CliInner"]
 layout_mode = 2
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 4
 
-[node name="ScanCli" type="Button" parent="Root/CliRow"]
+[node name="ScanCli" type="Button" parent="Root/CliFold/CliInner/CliRow"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Scan"
 
-[node name="LoginCodex" type="Button" parent="Root/CliRow"]
+[node name="LoginCodex" type="Button" parent="Root/CliFold/CliInner/CliRow"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Login Codex"
 
-[node name="LoginClaude" type="Button" parent="Root/CliRow"]
+[node name="LoginClaude" type="Button" parent="Root/CliFold/CliInner/CliRow"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Login Claude"
 
-[node name="LoginGemini" type="Button" parent="Root/CliRow"]
+[node name="LoginGemini" type="Button" parent="Root/CliFold/CliInner/CliRow"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Login Gemini"
 
-[node name="CliUseRow" type="HBoxContainer" parent="Root"]
+[node name="CliUseRow" type="HFlowContainer" parent="Root/CliFold/CliInner"]
 layout_mode = 2
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 4
 
-[node name="UseCodex" type="Button" parent="Root/CliUseRow"]
+[node name="UseCodex" type="Button" parent="Root/CliFold/CliInner/CliUseRow"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Use Codex session"
+disabled = true
+text = "Use Codex"
 
-[node name="UseClaude" type="Button" parent="Root/CliUseRow"]
+[node name="UseClaude" type="Button" parent="Root/CliFold/CliInner/CliUseRow"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Use Claude session"
+disabled = true
+text = "Use Claude"
 
-[node name="UseGemini" type="Button" parent="Root/CliUseRow"]
+[node name="UseGemini" type="Button" parent="Root/CliFold/CliInner/CliUseRow"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Use Gemini session"
-
-[node name="SaveSettings" type="Button" parent="Root"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Save settings"
+disabled = true
+text = "Use Gemini"
 
 [node name="Transcript" type="RichTextLabel" parent="Root"]
 unique_name_in_owner = true
@@ -177,51 +211,65 @@ size_flags_vertical = 3
 bbcode_enabled = true
 scroll_following = true
 selection_enabled = true
+fit_content = false
 
 [node name="PlanBox" type="VBoxContainer" parent="Root"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PlanTitle" type="Label" parent="Root/PlanBox"]
+layout_mode = 2
+text = "Plan"
 
 [node name="PlanText" type="RichTextLabel" parent="Root/PlanBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 120)
+custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
+scroll_following = true
 
 [node name="PlanButtons" type="HBoxContainer" parent="Root/PlanBox"]
 layout_mode = 2
-
-[node name="ApprovePlan" type="Button" parent="Root/PlanBox/PlanButtons"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Approve plan"
+alignment = 2
+theme_override_constants/separation = 6
 
 [node name="RejectPlan" type="Button" parent="Root/PlanBox/PlanButtons"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Reject"
 
+[node name="ApprovePlan" type="Button" parent="Root/PlanBox/PlanButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Approve"
+
 [node name="ToolBox" type="VBoxContainer" parent="Root"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_constants/separation = 4
 
 [node name="Composer" type="TextEdit" parent="Root"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 90)
+custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 placeholder_text = "Describe the change. Ctrl+Enter sends. @res://path attaches a file."
 wrap_mode = 1
+scroll_fit_content_height = false
 
 [node name="Footer" type="HBoxContainer" parent="Root"]
 layout_mode = 2
+theme_override_constants/separation = 8
 
 [node name="Status" type="Label" parent="Root/Footer"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+clip_text = true
 text = "Ready"
+autowrap_mode = 3
 
 [node name="SendButton" type="Button" parent="Root/Footer"]
 unique_name_in_owner = true
