@@ -1,6 +1,6 @@
 # Lumen
 
-Local-first AI agent **inside** the Godot 4.7+ editor.
+Local-first AI agent **inside** the Godot 4.2+ editor (4.7 dock API when present).
 
 Lumen reads the project, edits scenes and scripts, playtests a scene, and can expose the same tools to an MCP client on `127.0.0.1`. It does **not** ship a subscription, an account, hosted models, telemetry, or a multiplayer relay.
 
@@ -92,7 +92,7 @@ Gemini login is detected, but inference still needs an API-compatible endpoint. 
 
 `@res://path/to/file.gd` attaches that file to the next message.
 
-Ctrl+Enter sends. Send becomes **Stop** while a turn is running.
+Ctrl+Enter sends.
 
 ## Plan mode and undo
 
@@ -143,15 +143,16 @@ addons/lumen/
   core/                  paths, settings, snapshots, skills
   providers/             OpenAI-compatible + Anthropic
   agent/                 tool registry + loop + plan mode
-  tools/builtin_tools.gd editor actions
-  playtest/harness.gd    optional runtime IO
-  mcp/mcp_server.gd      localhost JSON-RPC
+  tools/                 editor actions + scene extras
+  playtest/harness.gd    input replay + world snapshot
+  mcp/mcp_server.gd      localhost JSON-RPC out
+  core/docs_index.gd     local class hints
   ui/                    dock
 ```
 
 ## Requirements
 
-Godot **4.7.1 or newer**. Uses the 4.7 `EditorDock` + `add_dock` API and the `EditorInterface` singleton. No extra native libraries.
+Godot **4.2 or newer**. On 4.7+ Lumen uses `EditorDock` + `add_dock`. On 4.2–4.6 it falls back to `add_control_to_dock`. No extra native libraries.
 
 ## License
 
