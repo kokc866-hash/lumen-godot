@@ -14,6 +14,8 @@ var builtins: LumenBuiltinTools
 var plan: LumenPlanMode
 var openai: LumenOpenAICompatible
 var anthropic: LumenAnthropic
+var cli_auth: LumenCliAuth
+var codex: LumenCodexSubscription
 var loop: LumenAgentLoop
 var mcp: LumenMcpServer
 
@@ -30,13 +32,23 @@ func _enter_tree() -> void:
 	plan = LumenPlanMode.new()
 	openai = LumenOpenAICompatible.new()
 	anthropic = LumenAnthropic.new()
+	cli_auth = LumenCliAuth.new(log)
+	codex = LumenCodexSubscription.new()
 	loop = LumenAgentLoop.new()
 	dock = DockScene.instantiate()
 	add_control_to_dock(DOCK_SLOT_RIGHT_UL, dock)
 	openai.attach(dock, log)
 	anthropic.attach(dock, log)
+	codex.attach(dock, log, cli_auth)
 	loop.setup(self, settings, registry, snapshots, plan, openai, anthropic, log, context, skills)
+	loop.bind_cli(cli_auth, codex)
 	dock.bind_settings(settings)
+	if dock.has_method("bind_cli"):
+		dock.bind_cli(cli_auth)
+	if dock.has_signal("cli_scan"):
+		dock.cli_scan.connect(_on_cli_scan)
+		dock.cli_login.connect(_on_cli_login)
+		dock.cli_use.connect(_on_cli_use)
 	dock.send_pressed.connect(_on_send)
 	dock.new_chat.connect(_on_new)
 	dock.undo_pressed.connect(_on_undo)
@@ -149,6 +161,45 @@ func _on_settings() -> void:
 		mcp.port = int(settings.get_value("mcp_port", 8765))
 		if bool(settings.get_value("mcp_enabled", false)):
 			mcp.start()
+
+
+func _on_cli_scan() -> void:
+	if dock.has_method("refresh_cli_status"):
+		dock.refresh_cli_status()
+	dock.append_system(cli_auth.status_line())
+
+
+func _on_cli_login(kind: String) -> void:
+	var result := cli_auth.start_login(kind)
+	if bool(result.get("ok", false)):
+		dock.append_system(str(result.get("message", "Login started.")))
+	else:
+		dock.append_system(str(result.get("error", "Login failed.")))
+
+
+func _on_cli_use(kind: String) -> void:
+	match kind:
+		"codex":
+			settings.set_value("provider", "codex_cli")
+			if settings.model() == "":
+				settings.set_value("model", "gpt-5.3-codex")
+		"claude":
+			settings.set_value("provider", "claude_cli")
+			if settings.model() == "":
+				settings.set_value("model", "claude-sonnet-4-5")
+		"gemini":
+			settings.set_value("provider", "gemini_cli")
+			dock.append_system("Gemini CLI session detected. Inference still needs an API-compatible endpoint; Codex and Claude Code sessions work directly.")
+			if dock.has_method("refresh_cli_status"):
+				dock.refresh_cli_status()
+			return
+		_:
+			dock.append_system("Unknown CLI.")
+			return
+	dock.bind_settings(settings)
+	if dock.has_method("refresh_cli_status"):
+		dock.refresh_cli_status()
+	dock.append_system("Using %s subscription via official CLI session. Usage counts on that account." % kind)
 
 
 func _on_tool_proposed(call_id: String, name: String, args: Dictionary, readonly: bool) -> void:
