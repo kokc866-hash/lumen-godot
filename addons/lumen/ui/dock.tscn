@@ -96,6 +96,52 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Local MCP on 127.0.0.1:8765"
 
+[node name="CliLabel" type="Label" parent="Root"]
+layout_mode = 2
+text = "Existing CLI subscriptions"
+
+[node name="CliStatus" type="Label" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+text = "Scan to detect Codex / Claude / Gemini sessions."
+
+[node name="CliRow" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+
+[node name="ScanCli" type="Button" parent="Root/CliRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Scan"
+
+[node name="LoginCodex" type="Button" parent="Root/CliRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Login Codex"
+
+[node name="LoginClaude" type="Button" parent="Root/CliRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Login Claude"
+
+[node name="LoginGemini" type="Button" parent="Root/CliRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Login Gemini"
+
+[node name="CliUseRow" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+
+[node name="UseCodex" type="Button" parent="Root/CliUseRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Use Codex session"
+
+[node name="UseClaude" type="Button" parent="Root/CliUseRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Use Claude session"
+
 [node name="SaveSettings" type="Button" parent="Root"]
 unique_name_in_owner = true
 layout_mode = 2
