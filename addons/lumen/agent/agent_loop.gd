@@ -24,6 +24,8 @@ var snapshots: LumenSnapshotStore
 var plan: LumenPlanMode
 var openai: LumenOpenAICompatible
 var anthropic: LumenAnthropic
+var codex: LumenCodexSubscription
+var cli: LumenCliAuth
 var log: LumenLogger
 var context: LumenContextBuilder
 var skills: LumenSkillLoader
@@ -64,6 +66,14 @@ func setup(
 	if not anthropic.finished.is_connected(_on_openai):
 		anthropic.finished.connect(_on_openai)
 		anthropic.failed.connect(_fail)
+
+
+func bind_cli(p_cli: LumenCliAuth, p_codex: LumenCodexSubscription) -> void:
+	cli = p_cli
+	codex = p_codex
+	if codex and not codex.finished.is_connected(_on_openai):
+		codex.finished.connect(_on_openai)
+		codex.failed.connect(_fail)
 
 
 func reset_chat() -> void:
@@ -125,7 +135,20 @@ func _step() -> void:
 		_compact()
 	status.emit("Talking to %s…" % settings.provider_id())
 	var tools := registry.openai_tools()
-	if settings.provider_id() == "anthropic":
+	var provider := settings.provider_id()
+	if provider == "codex_cli":
+		if codex == null:
+			_fail("Codex subscription provider is not attached.")
+			return
+		codex.chat(
+			settings.model(),
+			messages,
+			tools,
+			int(settings.get_value("max_tokens", 4096)),
+			float(settings.get_value("temperature", 0.2))
+		)
+		return
+	if provider == "anthropic" or provider == "claude_cli":
 		var system := ""
 		var rest: Array = []
 		for msg in messages:
@@ -133,15 +156,28 @@ func _step() -> void:
 				system += str(msg.get("content", "")) + "\n"
 			else:
 				rest.append(msg)
+		var key := settings.api_key()
+		var oauth := provider == "claude_cli"
+		if oauth and cli:
+			var creds := cli.load_claude_token()
+			if bool(creds.get("ok", false)):
+				key = str(creds.get("access_token", ""))
+			else:
+				_fail("No Claude Code session. Click Login Claude or run `claude /login`.")
+				return
 		anthropic.chat(
-			settings.api_key(),
+			key,
 			settings.model(),
 			system,
 			rest,
 			tools,
 			int(settings.get_value("max_tokens", 4096)),
-			float(settings.get_value("temperature", 0.2))
+			float(settings.get_value("temperature", 0.2)),
+			oauth
 		)
+		return
+	if provider == "gemini_cli":
+		_fail("Gemini CLI login is stored, but Lumen talks to Gemini through an API key provider. Switch to custom + your Gemini OpenAI-compatible endpoint, or use Codex / Claude CLI sessions.")
 		return
 	var payload := {
 		"model": settings.model(),
