@@ -163,7 +163,7 @@ func _to_ollama(payload: Dictionary) -> Dictionary:
 		"model": payload.get("model", ""),
 		"messages": _ollama_messages(payload.get("messages", [])),
 		"stream": false,
-		"think": false,
+		"think": bool(payload.get("think", false)),
 		"keep_alive": payload.get("keep_alive", "-1"),
 	}
 	if payload.has("tools"):

@@ -13,6 +13,7 @@ const DEFAULTS := {
 	"num_ctx": 65536,
 	"tool_result_chars": 8000,
 	"keep_alive": "-1",
+	"think": false,
 	"compact_tools": true,
 	"plan_mode": false,
 	"auto_approve_readonly": true,
