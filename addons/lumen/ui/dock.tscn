@@ -73,6 +73,27 @@ layout_mode = 2
 tooltip_text = "Insert the selected node or scene path as @mention."
 text = "Insert @"
 
+[node name="ChatFold" type="FoldableContainer" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+title = "Chats"
+folded = true
+
+[node name="ChatInner" type="VBoxContainer" parent="Root/ChatFold"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="ChatSearch" type="LineEdit" parent="Root/ChatFold/ChatInner"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Search chats"
+
+[node name="ChatList" type="ItemList" parent="Root/ChatFold/ChatInner"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+max_text_lines = 1
+
 [node name="ConnFold" type="FoldableContainer" parent="Root"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -223,8 +244,15 @@ theme_override_constants/separation = 6
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-tooltip_text = "Probe the selected provider. Local URLs are reached from the editor, not from the web studio."
+tooltip_text = "Load the model with the current context and keep-alive."
 text = "Test"
+
+[node name="ListModels" type="Button" parent="Root/ConnFold/ConnInner/SaveRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Ask the runtime for installed model ids and fill the Model field."
+text = "Models"
 
 [node name="SaveSettings" type="Button" parent="Root/ConnFold/ConnInner/SaveRow"]
 unique_name_in_owner = true
@@ -304,6 +332,24 @@ bbcode_enabled = true
 scroll_following = true
 selection_enabled = true
 fit_content = false
+
+[node name="TodoBox" type="VBoxContainer" parent="Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="TodoTitle" type="Label" parent="Root/TodoBox"]
+layout_mode = 2
+text = "Todos"
+theme_override_font_sizes/font_size = 12
+
+[node name="TodoList" type="RichTextLabel" parent="Root/TodoBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+bbcode_enabled = true
+fit_content = true
 
 [node name="PlanBox" type="VBoxContainer" parent="Root"]
 unique_name_in_owner = true
