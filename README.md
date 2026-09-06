@@ -57,7 +57,7 @@ Current local coders (Qwen3.6 27B, Qwen3-Coder 30B) are **256k native**. Ollamaâ
 | Max tokens | `4096` | Generation cap, not the window. |
 | Compact tools | on | Core tools in the prompt. Extras via `list_more_tools`. |
 
-**Test** loads the model once so the first turn is not a cold start.
+**Test** loads the model with the current context so the first turn is not a cold start. **Models** asks the runtime for installed ids. **Stop** on the send button cancels an in-flight turn.
 
 ```bash
 ollama pull qwen3.6:27b
@@ -88,10 +88,11 @@ Gemini login is detected, but inference still needs an API-compatible endpoint. 
 - `/default` plan mode off
 - `/model <id>` switch model
 - `/undo` restore the last snapshot this agent wrote
+- `/stop` cancel the in-flight request
 
 `@res://path/to/file.gd` attaches that file to the next message.
 
-Ctrl+Enter sends.
+Ctrl+Enter sends. Send becomes **Stop** while a turn is running.
 
 ## Plan mode and undo
 
