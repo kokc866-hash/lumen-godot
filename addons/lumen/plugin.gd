@@ -17,6 +17,7 @@ var openai: LumenOpenAICompatible
 var anthropic: LumenAnthropic
 var cli_auth: LumenCliAuth
 var codex: LumenCodexSubscription
+var gemini: LumenGemini
 var loop: LumenAgentLoop
 var mcp: LumenMcpServer
 
@@ -38,14 +39,18 @@ func _enter_tree() -> void:
 	anthropic = LumenAnthropic.new()
 	cli_auth = LumenCliAuth.new(log)
 	codex = LumenCodexSubscription.new()
+	gemini = LumenGemini.new()
 	loop = LumenAgentLoop.new()
 	dock = DockScene.instantiate()
 	editor_dock = LumenEditor.attach_dock(self, dock)
 	openai.attach(dock, log)
 	anthropic.attach(dock, log)
 	codex.attach(dock, log, cli_auth)
+	gemini.attach(dock, log)
 	loop.setup(self, settings, registry, snapshots, plan, openai, anthropic, log, context, skills)
-	loop.bind_cli(cli_auth, codex)
+	loop.bind_cli(cli_auth, codex, gemini)
+	if dock.has_method("restore_messages"):
+		dock.restore_messages(loop.messages)
 	dock.bind_settings(settings)
 	if dock.has_method("bind_cli"):
 		dock.bind_cli(cli_auth)
@@ -197,10 +202,8 @@ func _on_cli_use(kind: String) -> void:
 				settings.set_value("model", "claude-sonnet-4-5")
 		"gemini":
 			settings.set_value("provider", "gemini_cli")
-			dock.append_system("Gemini CLI session detected. Inference still needs an API-compatible endpoint; Codex and Claude Code sessions work directly.")
-			if dock.has_method("refresh_cli_status"):
-				dock.refresh_cli_status()
-			return
+			if settings.model() == "":
+				settings.set_value("model", "gemini-2.5-flash")
 		_:
 			dock.append_system("Unknown CLI.")
 			return
