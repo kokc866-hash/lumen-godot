@@ -11,10 +11,14 @@ static func ei() -> EditorInterface:
 
 
 static func attach_dock(plugin: EditorPlugin, content: Control) -> Node:
+	var icon: Texture2D = load("res://addons/lumen/icon.svg")
 	if ClassDB.class_exists("EditorDock") and plugin.has_method("add_dock"):
 		var wrap: Node = ClassDB.instantiate("EditorDock")
 		wrap.set("title", "Lumen")
 		wrap.set("default_slot", EditorPlugin.DOCK_SLOT_RIGHT_UL)
+		if icon:
+			wrap.set("icon", icon)
+			wrap.set("dock_icon", icon)
 		wrap.add_child(content)
 		plugin.call("add_dock", wrap)
 		return wrap
