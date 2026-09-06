@@ -20,6 +20,7 @@ var codex: LumenCodexSubscription
 var gemini: LumenGemini
 var loop: LumenAgentLoop
 var mcp: LumenMcpServer
+var _debugger: EditorDebuggerPlugin
 
 
 func _enter_tree() -> void:
@@ -34,6 +35,9 @@ func _enter_tree() -> void:
 	var more := LumenMoreTools.new()
 	more.attach(settings)
 	more.register(registry)
+	var extras := LumenEditorExtras.new()
+	extras.attach(settings, self)
+	extras.register(registry)
 	registry.mark_extras()
 	registry.register_meta()
 	plan = LumenPlanMode.new()
@@ -64,12 +68,26 @@ func _enter_tree() -> void:
 	dock.reject_plan.connect(_on_reject_plan)
 	dock.settings_changed.connect(_on_settings)
 	dock.test_pressed.connect(_on_test_connection)
+	dock.stop_pressed.connect(_on_stop)
+	dock.models_pressed.connect(_on_list_models)
+	if not openai.models_listed.is_connected(_on_models_listed):
+		openai.models_listed.connect(_on_models_listed)
 	loop.status.connect(dock.set_status)
 	loop.assistant_delta.connect(dock.append_assistant)
+	if loop.has_signal("stream_delta"):
+		loop.stream_delta.connect(dock.append_stream)
+	if dock.has_signal("chat_open"):
+		dock.chat_open.connect(_on_chat_open)
+	_debugger = LumenDebuggerPlugin.new()
+	add_debugger_plugin(_debugger)
+	dock.refresh_chats()
+	dock.refresh_todos()
 	loop.turn_done.connect(func(_text):
 		dock.set_busy(false)
 		dock.set_status("Idle")
 		dock.clear_tools()
+		dock.end_stream()
+		dock.refresh_todos()
 	)
 	loop.turn_failed.connect(func(text):
 		dock.set_busy(false)
@@ -96,6 +114,9 @@ func _enter_tree() -> void:
 
 func _exit_tree() -> void:
 	_disconnect_editor()
+	if _debugger:
+		remove_debugger_plugin(_debugger)
+		_debugger = null
 	if mcp:
 		mcp.stop()
 	if dock:
@@ -200,17 +221,55 @@ func _slash(text: String) -> void:
 				dock.append_system("Current model: %s" % settings.model())
 		"undo":
 			_on_undo()
+		"stop":
+			_on_stop()
 		_:
-			dock.append_system("Unknown command. /new /plan /default /model <id> /undo")
+			dock.append_system("Unknown command. /new /plan /default /model <id> /undo /stop")
+
+
+func _on_stop() -> void:
+	loop.stop()
+	dock.set_busy(false)
+	dock.set_status("Stopped")
+	dock.append_system("Stopped.")
+
+
+func _on_list_models() -> void:
+	var url := settings.base_url().strip_edges()
+	if url == "":
+		dock.append_system("Set a Base URL first.")
+		return
+	dock.set_status("Listing models…")
+	openai.list_models(url, settings.api_key())
+
+
+func _on_models_listed(names: PackedStringArray) -> void:
+	dock.set_status("Idle")
+	dock.apply_models(names)
 
 
 func _on_new() -> void:
+	loop.stop()
+	LumenChatStore.archive(loop.messages)
+	LumenTodos.clear()
 	loop.reset_chat()
 	dock.reset_transcript()
 	dock.hide_plan()
 	dock.clear_tools()
 	dock.set_busy(false)
 	dock.set_status("New chat")
+	dock.refresh_chats()
+	dock.refresh_todos()
+
+
+func _on_chat_open(id: String) -> void:
+	loop.stop()
+	LumenChatStore.archive(loop.messages)
+	loop.load_messages(LumenChatStore.load_chat(id))
+	dock.reset_transcript()
+	dock.restore_messages(loop.messages)
+	dock.set_status("Loaded chat")
+	dock.refresh_chats()
 
 
 func _on_undo() -> void:
