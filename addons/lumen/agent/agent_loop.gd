@@ -9,7 +9,7 @@ signal turn_done(message: String)
 signal turn_failed(message: String)
 signal plan_ready(plan: Dictionary)
 
-const MAX_STEPS := 16
+const MAX_STEPS := 24
 const WRITE_TOOLS := [
 	"write_file", "edit_file", "delete_file", "move_path",
 	"create_node", "set_node_property", "delete_node", "reparent_node",
@@ -91,6 +91,8 @@ func reset_chat() -> void:
 	plan.clear()
 	_pending_calls.clear()
 	_approvals.clear()
+	if registry:
+		registry.enabled_extra.clear()
 	_save_persisted()
 
 
@@ -150,7 +152,8 @@ func reject_plan() -> void:
 func _step() -> void:
 	_compact()
 	status.emit("Talking to %s…" % settings.provider_id())
-	var tools := registry.openai_tools()
+	var compact := _use_compact_tools()
+	var tools := registry.openai_tools(compact)
 	var provider := settings.provider_id()
 	if provider == "codex_cli":
 		if codex == null:
@@ -213,11 +216,12 @@ func _step() -> void:
 	var payload := {
 		"model": settings.model(),
 		"temperature": float(settings.get_value("temperature", 0.2)),
-		"max_tokens": int(settings.get_value("max_tokens", 8192)),
+		"max_tokens": int(settings.get_value("max_tokens", 4096)),
 		"messages": messages,
 		"tools": tools,
 		"num_ctx": int(settings.get_value("num_ctx", 65536)),
-		"keep_alive": str(settings.get_value("keep_alive", "30m")),
+		"keep_alive": str(settings.get_value("keep_alive", "-1")),
+		"think": bool(settings.get_value("think", false)),
 	}
 	openai.chat(settings.base_url(), settings.api_key(), payload)
 
@@ -240,8 +244,11 @@ func _on_openai(result: Dictionary) -> void:
 		_fail("Provider returned no choices.")
 		return
 	var message: Dictionary = choices[0].get("message", {})
+	message.erase("thinking")
 	var finish := str(choices[0].get("finish_reason", ""))
 	var text := str(message.get("content", ""))
+	text = LumenToolParse._strip_think(text)
+	message["content"] = text
 	var tool_calls: Array = message.get("tool_calls", [])
 	if tool_calls.is_empty():
 		tool_calls = LumenToolParse.from_content(text)
@@ -325,7 +332,7 @@ func _flush_approvals() -> void:
 					snapshots.capture(_turn_id, str(args.get("from", "")))
 				_capture_edited_scene()
 			result = registry.run(name, args)
-		var cap := int(settings.get_value("tool_result_chars", 12000))
+		var cap := int(settings.get_value("tool_result_chars", 8000))
 		messages.append({
 			"role": "tool",
 			"tool_call_id": id,
@@ -368,10 +375,21 @@ func _count_assistant_turns() -> int:
 	return n
 
 
+func _use_compact_tools() -> bool:
+	if not bool(settings.get_value("compact_tools", true)):
+		return false
+	var provider := settings.provider_id()
+	if provider in ["ollama", "lmstudio", "custom"]:
+		return true
+	var url := settings.base_url().to_lower()
+	return url.find("127.0.0.1") >= 0 or url.find("localhost") >= 0
+
+
 func _compact() -> void:
-	var tool_cap := int(settings.get_value("tool_result_chars", 12000))
-	var keep := 20
-	var budget := int(settings.get_value("num_ctx", 65536)) * 3
+	var tool_cap := int(settings.get_value("tool_result_chars", 8000))
+	var ctx := maxi(int(settings.get_value("num_ctx", 65536)), 8192)
+	var gen := int(settings.get_value("max_tokens", 4096))
+	var budget := maxi((ctx - gen - 4096) * 3, 24000)
 	var system: Array = []
 	var tail: Array = []
 	for msg in messages:
@@ -382,20 +400,30 @@ func _compact() -> void:
 			system.append(copy)
 		else:
 			tail.append(copy)
-	if tail.size() > keep:
-		messages = system + [{"role": "user", "content": "(Earlier turns were trimmed to stay inside the local context window.)"}] + tail.slice(tail.size() - keep)
-	else:
-		messages = system + tail
-	var total := 0
-	for msg in messages:
-		total += str(msg.get("content", "")).length()
-	if total <= budget:
+	messages = system + tail
+	if _prompt_chars(messages) <= budget:
 		return
-	var tighter := mini(12, tail.size())
-	if tail.size() > tighter:
-		tail = tail.slice(tail.size() - tighter)
-		messages = system + [{"role": "user", "content": "(Context compacted for the local model.)"}] + tail
+	for msg in tail:
+		if str(msg.get("role", "")) == "tool":
+			msg["content"] = LumenJson.clamp_text(str(msg.get("content", "")), mini(tool_cap, 2000))
+	messages = system + tail
+	if _prompt_chars(messages) <= budget:
+		return
+	while tail.size() > 8 and _prompt_chars(system + tail) > budget:
+		tail.remove_at(0)
+	messages = system + [{"role": "user", "content": "(Older turns dropped to stay inside the context window.)"}] + tail
 
+
+func _prompt_chars(rows: Array) -> int:
+	var total := 0
+	for msg in rows:
+		if typeof(msg) != TYPE_DICTIONARY:
+			continue
+		total += str(msg.get("content", "")).length()
+		var calls: Variant = msg.get("tool_calls", null)
+		if typeof(calls) == TYPE_ARRAY:
+			total += JSON.stringify(calls).length()
+	return total
 
 
 func _capture_edited_scene() -> void:
