@@ -22,6 +22,7 @@ const DEFAULTS := {
 	"image_base_url": "",
 	"image_model": "",
 	"docs_url": "https://docs.godotengine.org/en/stable/",
+	"mcp_servers": [],
 }
 
 var project: Dictionary = {}
