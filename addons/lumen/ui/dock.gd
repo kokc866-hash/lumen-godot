@@ -13,7 +13,7 @@ signal cli_use(kind: String)
 signal test_pressed
 
 const PROVIDERS := [
-	{"id": "ollama", "label": "Ollama", "url": "http://127.0.0.1:11434/v1", "model": "qwen2.5-coder:32b"},
+	{"id": "ollama", "label": "Ollama", "url": "http://127.0.0.1:11434/v1", "model": "qwen3.6:27b"},
 	{"id": "lmstudio", "label": "LM Studio", "url": "http://127.0.0.1:1234/v1", "model": ""},
 	{"id": "openai", "label": "OpenAI", "url": "https://api.openai.com/v1", "model": "gpt-4.1"},
 	{"id": "grok", "label": "Grok", "url": "https://api.x.ai/v1", "model": "grok-4.5"},
@@ -96,6 +96,10 @@ func _ready() -> void:
 	provider_option.item_selected.connect(_on_provider)
 	plan_check.toggled.connect(func(_on): _save_fields(false))
 	mcp_check.toggled.connect(func(_on): _save_fields(false))
+	if has_node("%CompactCheck"):
+		%CompactCheck.toggled.connect(func(_on): _save_fields(false))
+	if has_node("%ThinkCheck"):
+		%ThinkCheck.toggled.connect(func(_on): _save_fields(false))
 	composer.gui_input.connect(_on_composer_input)
 	plan_box.visible = false
 	_seed_providers()
@@ -129,8 +133,18 @@ func _load_fields() -> void:
 	mcp_port_edit.text = str(settings.get_value("mcp_port", 8765))
 	if has_node("%CtxEdit"):
 		%CtxEdit.text = str(settings.get_value("num_ctx", 65536))
+	if has_node("%KeepEdit"):
+		%KeepEdit.text = str(settings.get_value("keep_alive", "-1"))
+	if has_node("%TempEdit"):
+		%TempEdit.text = str(settings.get_value("temperature", 0.2))
+	if has_node("%MaxEdit"):
+		%MaxEdit.text = str(settings.get_value("max_tokens", 4096))
 	plan_check.set_pressed_no_signal(settings.plan_mode())
 	mcp_check.set_pressed_no_signal(bool(settings.get_value("mcp_enabled", false)))
+	if has_node("%CompactCheck"):
+		%CompactCheck.set_pressed_no_signal(bool(settings.get_value("compact_tools", true)))
+	if has_node("%ThinkCheck"):
+		%ThinkCheck.set_pressed_no_signal(bool(settings.get_value("think", false)))
 	_apply_provider_visibility()
 	_refresh_conn_chip()
 
@@ -149,6 +163,19 @@ func _save_fields(announce: bool = true) -> void:
 	if has_node("%CtxEdit"):
 		var ctx_text: String = %CtxEdit.text.strip_edges()
 		settings.set_value("num_ctx", int(ctx_text) if ctx_text.is_valid_int() else 65536)
+	if has_node("%KeepEdit"):
+		var keep := %KeepEdit.text.strip_edges()
+		settings.set_value("keep_alive", keep if keep != "" else "-1")
+	if has_node("%TempEdit"):
+		var temp := %TempEdit.text.strip_edges()
+		settings.set_value("temperature", float(temp) if temp.is_valid_float() else 0.2)
+	if has_node("%MaxEdit"):
+		var mx := %MaxEdit.text.strip_edges()
+		settings.set_value("max_tokens", int(mx) if mx.is_valid_int() else 4096)
+	if has_node("%CompactCheck"):
+		settings.set_value("compact_tools", %CompactCheck.button_pressed)
+	if has_node("%ThinkCheck"):
+		settings.set_value("think", %ThinkCheck.button_pressed)
 	settings.set_api_key(key_edit.text.strip_edges())
 	settings_changed.emit()
 	if announce:
