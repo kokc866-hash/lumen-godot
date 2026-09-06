@@ -34,6 +34,8 @@ func _enter_tree() -> void:
 	var more := LumenMoreTools.new()
 	more.attach(settings)
 	more.register(registry)
+	registry.mark_extras()
+	registry.register_meta()
 	plan = LumenPlanMode.new()
 	openai = LumenOpenAICompatible.new()
 	anthropic = LumenAnthropic.new()
@@ -305,8 +307,30 @@ func _on_test_connection() -> void:
 	if not (url.begins_with("http://") or url.begins_with("https://")):
 		dock.set_status("Error: URL must be http(s).")
 		return
-	dock.set_status("Saved · %s" % provider)
-	dock.append_system("Connection stored for %s at %s. Send a message to exercise it. Loopback URLs are reached from this editor." % [provider, url])
+	dock.set_status("Loading %s…" % settings.model())
+	if not openai.probed.is_connected(_on_probed):
+		openai.probed.connect(_on_probed)
+	openai.warmup(
+		url,
+		settings.api_key(),
+		settings.model(),
+		str(settings.get_value("keep_alive", "-1")),
+		int(settings.get_value("num_ctx", 65536))
+	)
+
+
+func _on_probed(ok: bool, message: String) -> void:
+	if openai.probed.is_connected(_on_probed):
+		openai.probed.disconnect(_on_probed)
+	if ok:
+		dock.set_status("Loaded · %s" % settings.model())
+		dock.append_system("Runtime ready. keep_alive %s, context %s. Large local models stay resident so tool steps do not reload VRAM." % [
+			str(settings.get_value("keep_alive", "-1")),
+			str(settings.get_value("num_ctx", 65536)),
+		])
+	else:
+		dock.set_status("Error")
+		dock.append_system(message)
 
 
 func _ensure_playtest_autoload() -> void:
