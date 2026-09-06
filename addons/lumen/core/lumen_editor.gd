@@ -2,7 +2,7 @@
 class_name LumenEditor
 extends RefCounted
 
-## Godot 4.7+ EditorDock. Vertical, bottom, or floating. Alt+L opens the tab.
+## Godot 4.7 EditorDock when present. Falls back to add_control_to_dock on 4.2–4.6.
 
 const LAYOUT_ALL := 7
 
