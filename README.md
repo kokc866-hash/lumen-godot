@@ -44,6 +44,7 @@ Settings live in `res://.lumen/project.json`. The API key lives in `user://lumen
 | Ollama | `http://127.0.0.1:11434/v1` | empty |
 | LM Studio | `http://127.0.0.1:1234/v1` | empty |
 | OpenAI-compatible | your endpoint `/v1` | your key |
+| Grok (xAI) | `https://api.x.ai/v1` | your xAI key |
 | Anthropic | `https://api.anthropic.com` | `sk-ant-…` |
 
 Ollama example:
@@ -121,7 +122,7 @@ Point a client at that HTTP JSON-RPC endpoint. Methods: `initialize`, `tools/lis
 - Spin up a hosted relay or embed `user_id` / `game_id` into Project Settings
 - Execute arbitrary GDScript inside the editor (on purpose: too easy to trash a project)
 
-Image generation is opt-in via your own image endpoint. It is not wired to a third-party asset vendor.
+`generate_image` writes `res://assets/lumen/`. With `image_base_url` it calls an OpenAI-compatible `/images/generations` endpoint. Without it, Lumen writes a local placeholder PNG so the path exists.
 
 ## Layout
 
@@ -129,7 +130,7 @@ Image generation is opt-in via your own image endpoint. It is not wired to a thi
 addons/lumen/
   plugin.gd              editor entry
   core/                  paths, settings, snapshots, skills
-  providers/             OpenAI-compatible + Anthropic + Codex CLI
+  providers/             OpenAI-compatible + Anthropic
   agent/                 tool registry + loop + plan mode
   tools/builtin_tools.gd editor actions
   playtest/harness.gd    optional runtime IO

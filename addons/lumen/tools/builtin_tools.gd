@@ -138,7 +138,7 @@ func register(registry: LumenToolRegistry) -> void:
 		false, playtest_batch
 	))
 	registry.register_tool(LumenToolSpec.new(
-		"capture_screenshot", "Capture the editor 2D viewport to a PNG under res://.lumen/captures/.",
+		"capture_screenshot", "Capture the editor 2D/3D viewport to a PNG under res://.lumen/captures/.",
 		_object_schema({"name": {"type": "string"}}, ["name"]), false, capture_screenshot
 	))
 	registry.register_tool(LumenToolSpec.new(
@@ -162,11 +162,11 @@ func register(registry: LumenToolRegistry) -> void:
 		_object_schema({"path": {"type": "string"}}, [], ["path"]), true, get_tile_state
 	))
 	registry.register_tool(LumenToolSpec.new(
-		"generate_image", "Generate an image via an OpenAI-compatible image endpoint if configured.",
+		"generate_image", "Generate an image via an OpenAI-compatible image endpoint if configured. Saves under res://assets/lumen/.",
 		_object_schema({
 			"prompt": {"type": "string"},
 			"filename": {"type": "string"},
-			"size": {"type": "string"},
+			"size": {"type": "string", "description": "e.g. 512x512"},
 		}, ["filename", "size"], ["prompt"]),
 		false, generate_image
 	))
@@ -177,6 +177,48 @@ func register(registry: LumenToolRegistry) -> void:
 	registry.register_tool(LumenToolSpec.new(
 		"search_godot_docs_hint", "Return the official docs URL for a class or topic. Does not scrape pages.",
 		_object_schema({"topic": {"type": "string"}}, [], ["topic"]), true, search_godot_docs_hint
+	))
+	registry.register_tool(LumenToolSpec.new(
+		"fill_tiles", "Fill a rectangle of cells on a TileMapLayer.",
+		_object_schema({
+			"path": {"type": "string"},
+			"x": {"type": "integer"},
+			"y": {"type": "integer"},
+			"w": {"type": "integer"},
+			"h": {"type": "integer"},
+			"source_id": {"type": "integer"},
+			"atlas_x": {"type": "integer"},
+			"atlas_y": {"type": "integer"},
+		}, ["atlas_x", "atlas_y"], ["path", "x", "y", "w", "h", "source_id"]),
+		false, fill_tiles
+	))
+	registry.register_tool(LumenToolSpec.new(
+		"erase_tiles", "Erase a rectangle of cells on a TileMapLayer.",
+		_object_schema({
+			"path": {"type": "string"},
+			"x": {"type": "integer"},
+			"y": {"type": "integer"},
+			"w": {"type": "integer"},
+			"h": {"type": "integer"},
+		}, [], ["path", "x", "y", "w", "h"]),
+		false, erase_tiles
+	))
+	registry.register_tool(LumenToolSpec.new(
+		"attach_script", "Attach a script resource to a node in the edited scene.",
+		_object_schema({
+			"path": {"type": "string"},
+			"script": {"type": "string", "description": "res:// path to .gd/.cs"},
+		}, [], ["path", "script"]),
+		false, attach_script
+	))
+	registry.register_tool(LumenToolSpec.new(
+		"open_scene", "Open a scene in the editor.",
+		_object_schema({"path": {"type": "string"}}, [], ["path"]), false, open_scene
+	))
+	registry.register_tool(LumenToolSpec.new(
+		"save_scene", "Save the currently edited scene.",
+		_object_schema({"path": {"type": "string", "description": "Optional save-as path"}}, ["path"]),
+		false, save_scene
 	))
 
 
@@ -203,7 +245,7 @@ func _safe_res(path: String) -> String:
 
 
 func get_project_info(_args: Dictionary) -> Dictionary:
-	var ei := plugin.get_editor_interface()
+	var ei := EditorInterface
 	var root := ei.get_edited_scene_root()
 	return {
 		"ok": true,
@@ -216,7 +258,7 @@ func get_project_info(_args: Dictionary) -> Dictionary:
 
 
 func get_scene_tree(args: Dictionary) -> Dictionary:
-	var root := plugin.get_editor_interface().get_edited_scene_root()
+	var root := EditorInterface.get_edited_scene_root()
 	if root == null:
 		return {"ok": false, "error": "No edited scene."}
 	var start := root
@@ -323,17 +365,37 @@ func _search(dir_path: String, query: String, glob: String, hits: Array, limit: 
 
 
 func get_errors(_args: Dictionary) -> Dictionary:
-	var script_errors: Array = []
-	var ei := plugin.get_editor_interface()
-	var se := ei.get_script_editor()
+	var open_scripts: Array = []
+	var se := EditorInterface.get_script_editor()
 	if se:
 		for script in se.get_open_scripts():
 			if script:
-				script_errors.append(script.resource_path)
+				open_scripts.append(script.resource_path)
+	var log_hits: Array = []
+	var log_paths := PackedStringArray([
+		OS.get_user_data_dir().path_join("logs/godot.log"),
+		ProjectSettings.globalize_path("user://logs/godot.log"),
+	])
+	for log_path in log_paths:
+		if not FileAccess.file_exists(log_path):
+			continue
+		var text := FileAccess.get_file_as_string(log_path)
+		var lines := text.split("\n")
+		var start := maxi(0, lines.size() - 250)
+		for i in range(start, lines.size()):
+			var line := lines[i]
+			var lower := line.to_lower()
+			if "error" in lower or "warning" in lower or "script error" in lower or "parse error" in lower:
+				log_hits.append(line.strip_edges())
+				if log_hits.size() >= 40:
+					break
+		break
 	return {
 		"ok": true,
-		"note": "Godot does not expose the full debugger queue to plugins on every version. Open scripts listed; read the Output dock for live errors.",
-		"open_scripts": script_errors,
+		"open_scripts": open_scripts,
+		"log_hits": log_hits,
+		"playing": EditorInterface.is_playing_scene(),
+		"playing_scene": EditorInterface.get_playing_scene(),
 	}
 
 
@@ -397,7 +459,7 @@ func move_path(args: Dictionary) -> Dictionary:
 
 
 func create_node(args: Dictionary) -> Dictionary:
-	var root := plugin.get_editor_interface().get_edited_scene_root()
+	var root := EditorInterface.get_edited_scene_root()
 	if root == null:
 		return {"ok": false, "error": "No edited scene."}
 	var parent_path := str(args.get("parent", ""))
@@ -430,7 +492,7 @@ func set_node_property(args: Dictionary) -> Dictionary:
 
 
 func delete_node(args: Dictionary) -> Dictionary:
-	var root := plugin.get_editor_interface().get_edited_scene_root()
+	var root := EditorInterface.get_edited_scene_root()
 	var node := _find(str(args.get("path", "")))
 	if node == null:
 		return {"ok": false, "error": "Node not found."}
@@ -447,7 +509,7 @@ func reparent_node(args: Dictionary) -> Dictionary:
 	if node == null or parent == null:
 		return {"ok": false, "error": "Node or parent not found."}
 	node.reparent(parent)
-	node.owner = plugin.get_editor_interface().get_edited_scene_root()
+	node.owner = EditorInterface.get_edited_scene_root()
 	_mark_scene_dirty()
 	return {"ok": true}
 
@@ -469,7 +531,7 @@ func set_project_setting(args: Dictionary) -> Dictionary:
 
 
 func run_scene(args: Dictionary) -> Dictionary:
-	var ei := plugin.get_editor_interface()
+	var ei := EditorInterface
 	var path := str(args.get("path", ""))
 	if path == "":
 		ei.play_current_scene()
@@ -482,7 +544,7 @@ func run_scene(args: Dictionary) -> Dictionary:
 
 
 func stop_scene(_args: Dictionary) -> Dictionary:
-	plugin.get_editor_interface().stop_playing_scene()
+	EditorInterface.stop_playing_scene()
 	return {"ok": true}
 
 
@@ -497,7 +559,7 @@ func playtest_batch(args: Dictionary) -> Dictionary:
 
 
 func capture_screenshot(args: Dictionary) -> Dictionary:
-	var ei := plugin.get_editor_interface()
+	var ei := EditorInterface
 	var vp := ei.get_editor_viewport_2d()
 	if vp == null:
 		return {"ok": false, "error": "No 2D viewport."}
@@ -518,9 +580,19 @@ func run_tests(args: Dictionary) -> Dictionary:
 	var scene := str(args.get("scene", settings.get_value("test_scene", "")))
 	if scene != "":
 		return run_scene({"path": scene})
+	for candidate in [
+		"res://tests/test.tscn",
+		"res://test/test.tscn",
+		"res://addons/gut/gui/GutRunner.tscn",
+		"res://gut_tests.tscn",
+	]:
+		if FileAccess.file_exists(candidate):
+			return run_scene({"path": candidate})
 	var tests: Array = []
-	_search("res://", "test", ".gd", tests, 30)
-	return {"ok": true, "hint": "Pass scene to run it. Candidates listed.", "candidates": tests}
+	_search("res://", "test", ".gd", tests, 40)
+	if tests.is_empty():
+		_search("res://", "test", ".tscn", tests, 40)
+	return {"ok": true, "hint": "No dedicated runner found. Pass scene to play it.", "candidates": tests}
 
 
 func set_tile_cell(args: Dictionary) -> Dictionary:
@@ -555,19 +627,28 @@ func get_tile_state(args: Dictionary) -> Dictionary:
 
 
 func generate_image(args: Dictionary) -> Dictionary:
-	var url := str(settings.get_value("image_base_url", ""))
-	if url == "":
-		return {
-			"ok": false,
-			"error": "No image endpoint configured. Set image_base_url + image_model in settings, or generate assets outside Lumen.",
-		}
-	return {
-		"ok": false,
-		"error": "Image generation is configured asynchronously. Use a local image API from your own key. Prompt stored.",
-		"prompt": str(args.get("prompt", "")),
-		"filename": str(args.get("filename", "gen.png")),
-		"endpoint": url,
-	}
+	var prompt := str(args.get("prompt", "")).strip_edges()
+	if prompt == "":
+		return {"ok": false, "error": "Empty prompt."}
+	var filename := str(args.get("filename", "lumen-%d.png" % Time.get_unix_time_from_system())).get_file()
+	if not filename.ends_with(".png"):
+		filename += ".png"
+	var dest := "res://assets/lumen/" + filename
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/lumen"))
+	var url := str(settings.get_value("image_base_url", "")).strip_edges()
+	if url != "":
+		var remote := _generate_image_remote(url, prompt, str(args.get("size", "512x512")), dest)
+		if bool(remote.get("ok", false)):
+			_scan()
+			return remote
+		var placeholder := _write_placeholder_png(dest, prompt)
+		placeholder["warning"] = str(remote.get("error", "Remote image failed."))
+		_scan()
+		return placeholder
+	var local := _write_placeholder_png(dest, prompt)
+	local["note"] = "No image_base_url set. Wrote a local placeholder PNG so the path exists. Set image_base_url for a real model."
+	_scan()
+	return local
 
 
 func load_skill(args: Dictionary) -> Dictionary:
@@ -588,7 +669,7 @@ func search_godot_docs_hint(args: Dictionary) -> Dictionary:
 
 
 func _find(path: String) -> Node:
-	var root := plugin.get_editor_interface().get_edited_scene_root()
+	var root := EditorInterface.get_edited_scene_root()
 	if root == null:
 		return null
 	if path == "" or path == "." or path == str(root.name):
@@ -597,12 +678,167 @@ func _find(path: String) -> Node:
 
 
 func _scan() -> void:
-	var fs := plugin.get_editor_interface().get_resource_filesystem()
+	var fs := EditorInterface.get_resource_filesystem()
 	if fs:
 		fs.scan()
 
 
 func _mark_scene_dirty() -> void:
-	var ei := plugin.get_editor_interface()
-	if ei.has_method("mark_scene_as_unsaved"):
-		ei.call("mark_scene_as_unsaved")
+	EditorInterface.mark_scene_as_unsaved()
+
+
+func fill_tiles(args: Dictionary) -> Dictionary:
+	var node := _find(str(args.get("path", "")))
+	if node == null or not (node is TileMapLayer):
+		return {"ok": false, "error": "TileMapLayer not found."}
+	var layer := node as TileMapLayer
+	var origin := Vector2i(int(args.get("x", 0)), int(args.get("y", 0)))
+	var size := Vector2i(clampi(int(args.get("w", 1)), 1, 256), clampi(int(args.get("h", 1)), 1, 256))
+	var atlas := Vector2i(int(args.get("atlas_x", 0)), int(args.get("atlas_y", 0)))
+	var source := int(args.get("source_id", 0))
+	var count := 0
+	for y in size.y:
+		for x in size.x:
+			layer.set_cell(origin + Vector2i(x, y), source, atlas)
+			count += 1
+	_mark_scene_dirty()
+	return {"ok": true, "cells": count}
+
+
+func erase_tiles(args: Dictionary) -> Dictionary:
+	var node := _find(str(args.get("path", "")))
+	if node == null or not (node is TileMapLayer):
+		return {"ok": false, "error": "TileMapLayer not found."}
+	var layer := node as TileMapLayer
+	var origin := Vector2i(int(args.get("x", 0)), int(args.get("y", 0)))
+	var size := Vector2i(clampi(int(args.get("w", 1)), 1, 256), clampi(int(args.get("h", 1)), 1, 256))
+	var count := 0
+	for y in size.y:
+		for x in size.x:
+			layer.erase_cell(origin + Vector2i(x, y))
+			count += 1
+	_mark_scene_dirty()
+	return {"ok": true, "erased": count}
+
+
+func attach_script(args: Dictionary) -> Dictionary:
+	var node := _find(str(args.get("path", "")))
+	if node == null:
+		return {"ok": false, "error": "Node not found."}
+	var script_path := _safe_res(str(args.get("script", "")))
+	if script_path == "" or not FileAccess.file_exists(script_path):
+		return {"ok": false, "error": "Script not found."}
+	var script := load(script_path)
+	if script == null:
+		return {"ok": false, "error": "Could not load script."}
+	node.set_script(script)
+	_mark_scene_dirty()
+	return {"ok": true, "path": str(node.get_path()), "script": script_path}
+
+
+func open_scene(args: Dictionary) -> Dictionary:
+	var path := _safe_res(str(args.get("path", "")))
+	if path == "" or not FileAccess.file_exists(path):
+		return {"ok": false, "error": "Scene not found."}
+	EditorInterface.open_scene_from_path(path)
+	return {"ok": true, "path": path}
+
+
+func save_scene(args: Dictionary) -> Dictionary:
+	var as_path := str(args.get("path", "")).strip_edges()
+	if as_path != "":
+		as_path = _safe_res(as_path)
+		if as_path == "":
+			return {"ok": false, "error": "Path rejected."}
+		EditorInterface.save_scene_as(as_path)
+		return {"ok": true, "path": as_path}
+	var err := EditorInterface.save_scene()
+	return {"ok": err == OK, "error": error_string(err) if err != OK else ""}
+
+
+func _write_placeholder_png(dest: String, prompt: String) -> Dictionary:
+	var img := Image.create(512, 512, false, Image.FORMAT_RGBA8)
+	var hue := float(abs(prompt.hash()) % 360) / 360.0
+	img.fill(Color.from_hsv(hue, 0.35, 0.2))
+	var err := img.save_png(dest)
+	return {
+		"ok": err == OK,
+		"path": dest,
+		"placeholder": true,
+		"prompt": prompt,
+		"error": error_string(err) if err != OK else "",
+	}
+
+
+func _generate_image_remote(base_url: String, prompt: String, size: String, dest: String) -> Dictionary:
+	var endpoint := base_url.rstrip("/")
+	if not endpoint.ends_with("/images/generations"):
+		endpoint += "/images/generations"
+	var parsed := endpoint
+	var tls := parsed.begins_with("https://")
+	parsed = parsed.trim_prefix("https://").trim_prefix("http://")
+	var host := parsed.split("/")[0]
+	var path := "/" + parsed.substr(host.length()).lstrip("/")
+	var port := 443 if tls else 80
+	if ":" in host:
+		var hp := host.split(":")
+		host = hp[0]
+		port = int(hp[1])
+	var payload := JSON.stringify({
+		"model": str(settings.get_value("image_model", "gpt-image-1")),
+		"prompt": prompt,
+		"size": size if size != "" else "512x512",
+		"response_format": "b64_json",
+		"n": 1,
+	})
+	var headers := PackedStringArray(["Content-Type: application/json"])
+	var key := settings.image_api_key()
+	if key != "":
+		headers.append("Authorization: Bearer %s" % key)
+	var http := HTTPClient.new()
+	var err := http.connect_to_host(host, port, TLSOptions.client() if tls else null)
+	if err != OK:
+		return {"ok": false, "error": "Connect failed: %s" % error_string(err)}
+	var waited := 0
+	while http.get_status() == HTTPClient.STATUS_CONNECTING or http.get_status() == HTTPClient.STATUS_RESOLVING:
+		http.poll()
+		OS.delay_msec(30)
+		waited += 30
+		if waited > 15000:
+			return {"ok": false, "error": "Connect timeout."}
+	if http.get_status() != HTTPClient.STATUS_CONNECTED:
+		return {"ok": false, "error": "Not connected (%d)." % http.get_status()}
+	err = http.request(HTTPClient.METHOD_POST, path, headers, payload)
+	if err != OK:
+		return {"ok": false, "error": "Request failed: %s" % error_string(err)}
+	waited = 0
+	while http.get_status() == HTTPClient.STATUS_REQUESTING:
+		http.poll()
+		OS.delay_msec(30)
+		waited += 30
+		if waited > 60000:
+			return {"ok": false, "error": "Request timeout."}
+	var body := PackedByteArray()
+	while http.get_status() == HTTPClient.STATUS_BODY:
+		http.poll()
+		var chunk := http.read_response_body_chunk()
+		if chunk.size() > 0:
+			body.append_array(chunk)
+		else:
+			OS.delay_msec(20)
+	var text := body.get_string_from_utf8()
+	var parsed_json: Variant = JSON.parse_string(text)
+	if typeof(parsed_json) != TYPE_DICTIONARY:
+		return {"ok": false, "error": "Non-JSON image response.", "body": LumenJson.clamp_text(text, 400)}
+	var data: Array = parsed_json.get("data", [])
+	if data.is_empty():
+		return {"ok": false, "error": LumenJson.clamp_text(text, 400)}
+	var b64 := str(data[0].get("b64_json", ""))
+	if b64 == "":
+		return {"ok": false, "error": "No b64_json in image response."}
+	var bytes := Marshalls.base64_to_raw(b64)
+	var out := FileAccess.open(dest, FileAccess.WRITE)
+	if out == null:
+		return {"ok": false, "error": "Cannot write %s" % dest}
+	out.store_buffer(bytes)
+	return {"ok": true, "path": dest, "placeholder": false, "prompt": prompt}

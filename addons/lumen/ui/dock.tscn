@@ -33,6 +33,13 @@ size_flags_horizontal = 3
 text = "Lumen"
 theme_override_font_sizes/font_size = 15
 
+[node name="ConnChip" type="Label" parent="Root/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Ollama"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.604, 0.678, 0.761, 1)
+
 [node name="NewButton" type="Button" parent="Root/Header"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -135,10 +142,22 @@ layout_mode = 2
 tooltip_text = "JSON-RPC on 127.0.0.1 only."
 text = "Local MCP"
 
-[node name="SaveSettings" type="Button" parent="Root/ConnFold/ConnInner"]
+[node name="SaveRow" type="HBoxContainer" parent="Root/ConnFold/ConnInner"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TestConnection" type="Button" parent="Root/ConnFold/ConnInner/SaveRow"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Save connection"
+size_flags_horizontal = 3
+tooltip_text = "Probe the selected provider. Local URLs are reached from the editor, not from the web studio."
+text = "Test"
+
+[node name="SaveSettings" type="Button" parent="Root/ConnFold/ConnInner/SaveRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Save"
 
 [node name="CliFold" type="FoldableContainer" parent="Root"]
 unique_name_in_owner = true

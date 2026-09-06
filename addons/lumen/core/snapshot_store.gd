@@ -38,6 +38,7 @@ func capture(turn_id: String, res_path: String) -> void:
 	if not FileAccess.file_exists(res_path):
 		_remember(turn_id, res_path, false)
 		return
+	var abs_src := LumenPaths.to_abs(res_path)
 	var dest_dir := LumenPaths.SNAPSHOT_DIR.path_join(turn_id)
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dest_dir) if dest_dir.begins_with("user://") else dest_dir)
 	var dest := dest_dir.path_join(res_path.replace("res://", "").replace("/", "__"))
@@ -68,6 +69,8 @@ func restore_last() -> Dictionary:
 		if snap == "" or not FileAccess.file_exists(snap):
 			continue
 		var bytes := FileAccess.get_file_as_bytes(snap)
+		LumenJson.write_text(path, bytes.get_string_from_utf8())
+		# Binary-safe rewrite
 		var out := FileAccess.open(path, FileAccess.WRITE)
 		if out:
 			out.store_buffer(bytes)

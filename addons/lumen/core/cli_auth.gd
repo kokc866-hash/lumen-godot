@@ -3,15 +3,17 @@ class_name LumenCliAuth
 extends RefCounted
 
 ## Discovers official coding-agent CLIs on this machine and starts their login.
-## Tokens stay in the CLI's own files.
+## Lumen never opens a Ziva / vendor wallet. Tokens stay in the CLI's own files.
 
 const CODEX_CLIENT_ID := "app_EMoamEEZ73f0CkXaXp7hrann"
 const CODEX_REFRESH_URL := "https://auth.openai.com/oauth/token"
 
 var log: LumenLogger
 
+
 func _init(p_log: LumenLogger) -> void:
 	log = p_log
+
 
 func home_dir() -> String:
 	var home := OS.get_environment("HOME")
@@ -19,8 +21,14 @@ func home_dir() -> String:
 		home = OS.get_environment("USERPROFILE")
 	return home
 
+
 func scan() -> Dictionary:
-	return {"codex": _scan_codex(), "claude": _scan_claude(), "gemini": _scan_gemini()}
+	return {
+		"codex": _scan_codex(),
+		"claude": _scan_claude(),
+		"gemini": _scan_gemini(),
+	}
+
 
 func status_line() -> String:
 	var s := scan()
@@ -35,6 +43,7 @@ func status_line() -> String:
 			bits.append("%s: not installed" % key)
 	return " · ".join(bits)
 
+
 func start_login(kind: String) -> Dictionary:
 	var cmd := ""
 	match kind:
@@ -47,11 +56,18 @@ func start_login(kind: String) -> Dictionary:
 		_:
 			return {"ok": false, "error": "Unknown CLI %s" % kind}
 	if not _which(_bin(kind)):
-		return {"ok": false, "error": "%s CLI not on PATH. Install the official tool, then try again." % kind}
+		return {
+			"ok": false,
+			"error": "%s CLI not on PATH. Install the official tool, then try again." % kind,
+		}
 	var err := _open_terminal(cmd)
 	if err != OK:
 		return {"ok": false, "error": "Could not open a terminal (%s)." % error_string(err)}
-	return {"ok": true, "message": "Finish login in the terminal. Then press Scan."}
+	return {
+		"ok": true,
+		"message": "Finish login in the terminal. Then press Scan.",
+	}
+
 
 func _bin(kind: String) -> String:
 	match kind:
@@ -63,6 +79,7 @@ func _bin(kind: String) -> String:
 			return "gemini"
 		_:
 			return kind
+
 
 func _which(bin: String) -> bool:
 	if bin == "":
@@ -76,6 +93,7 @@ func _which(bin: String) -> bool:
 		if FileAccess.file_exists(candidate) or FileAccess.file_exists(candidate + ".exe") or FileAccess.file_exists(candidate + ".cmd"):
 			return true
 	return OS.execute(bin, ["--version"], [], false, false) == 0
+
 
 func _open_terminal(command: String) -> Error:
 	var os_name := OS.get_name()
@@ -101,6 +119,7 @@ func _open_terminal(command: String) -> Error:
 	var pid := OS.create_process(exe, args)
 	return OK if pid > 0 else ERR_CANT_OPEN
 
+
 func _scan_codex() -> Dictionary:
 	var path := _codex_auth_path()
 	var raw := _read_json(path)
@@ -108,7 +127,15 @@ func _scan_codex() -> Dictionary:
 	if typeof(tokens) != TYPE_DICTIONARY:
 		tokens = {}
 	var access := str(tokens.get("access_token", raw.get("OPENAI_API_KEY", "")))
-	return {"cli": _which("codex"), "session": access != "", "mode": str(raw.get("auth_mode", "")), "path": path, "account_id": _codex_account_id(tokens, access), "has_api_key": str(raw.get("OPENAI_API_KEY", "")) != ""}
+	return {
+		"cli": _which("codex"),
+		"session": access != "",
+		"mode": str(raw.get("auth_mode", "")),
+		"path": path,
+		"account_id": _codex_account_id(tokens, access),
+		"has_api_key": str(raw.get("OPENAI_API_KEY", "")) != "",
+	}
+
 
 func _scan_claude() -> Dictionary:
 	var path := home_dir().path_join(".claude").path_join(".credentials.json")
@@ -119,11 +146,23 @@ func _scan_claude() -> Dictionary:
 	var token := str(oauth.get("accessToken", ""))
 	if token == "":
 		token = OS.get_environment("CLAUDE_CODE_OAUTH_TOKEN")
-	return {"cli": _which("claude"), "session": token != "", "path": path, "subscription": str(oauth.get("subscriptionType", ""))}
+	return {
+		"cli": _which("claude"),
+		"session": token != "",
+		"path": path,
+		"subscription": str(oauth.get("subscriptionType", "")),
+	}
+
 
 func _scan_gemini() -> Dictionary:
 	var creds := load_gemini_token()
-	return {"cli": _which("gemini"), "session": bool(creds.get("ok", false)), "path": str(creds.get("path", "")), "mode": str(creds.get("mode", ""))}
+	return {
+		"cli": _which("gemini"),
+		"session": bool(creds.get("ok", false)),
+		"path": str(creds.get("path", "")),
+		"mode": str(creds.get("mode", "")),
+	}
+
 
 func load_codex_tokens() -> Dictionary:
 	var path := _codex_auth_path()
@@ -133,7 +172,18 @@ func load_codex_tokens() -> Dictionary:
 		tokens = {}
 	var access := str(tokens.get("access_token", ""))
 	var api_key := str(raw.get("OPENAI_API_KEY", ""))
-	return {"ok": access != "" or api_key != "", "path": path, "raw": raw, "access_token": access, "refresh_token": str(tokens.get("refresh_token", "")), "id_token": str(tokens.get("id_token", "")), "account_id": _codex_account_id(tokens, access if access != "" else str(tokens.get("id_token", ""))), "api_key": api_key, "auth_mode": str(raw.get("auth_mode", ""))}
+	return {
+		"ok": access != "" or api_key != "",
+		"path": path,
+		"raw": raw,
+		"access_token": access,
+		"refresh_token": str(tokens.get("refresh_token", "")),
+		"id_token": str(tokens.get("id_token", "")),
+		"account_id": _codex_account_id(tokens, access if access != "" else str(tokens.get("id_token", ""))),
+		"api_key": api_key,
+		"auth_mode": str(raw.get("auth_mode", "")),
+	}
+
 
 func write_codex_tokens(updated: Dictionary) -> void:
 	var path := _codex_auth_path()
@@ -155,6 +205,7 @@ func write_codex_tokens(updated: Dictionary) -> void:
 	if file:
 		file.store_string(JSON.stringify(raw, "\t"))
 
+
 func load_gemini_token() -> Dictionary:
 	var path := home_dir().path_join(".gemini").path_join("oauth_creds.json")
 	var raw := _read_json(path)
@@ -167,7 +218,15 @@ func load_gemini_token() -> Dictionary:
 		mode = "oauth"
 	elif api_key != "":
 		mode = "api_key"
-	return {"ok": access != "" or api_key != "", "path": path, "access_token": access, "refresh_token": str(raw.get("refresh_token", raw.get("refreshToken", ""))), "api_key": api_key, "mode": mode}
+	return {
+		"ok": access != "" or api_key != "",
+		"path": path,
+		"access_token": access,
+		"refresh_token": str(raw.get("refresh_token", raw.get("refreshToken", ""))),
+		"api_key": api_key,
+		"mode": mode,
+	}
+
 
 func load_claude_token() -> Dictionary:
 	var path := home_dir().path_join(".claude").path_join(".credentials.json")
@@ -178,7 +237,13 @@ func load_claude_token() -> Dictionary:
 	var token := str(oauth.get("accessToken", ""))
 	if token == "":
 		token = OS.get_environment("CLAUDE_CODE_OAUTH_TOKEN")
-	return {"ok": token != "", "access_token": token, "refresh_token": str(oauth.get("refreshToken", "")), "expires_at": oauth.get("expiresAt", 0)}
+	return {
+		"ok": token != "",
+		"access_token": token,
+		"refresh_token": str(oauth.get("refreshToken", "")),
+		"expires_at": oauth.get("expiresAt", 0),
+	}
+
 
 func _codex_auth_path() -> String:
 	var custom := OS.get_environment("CODEX_HOME")
@@ -186,11 +251,13 @@ func _codex_auth_path() -> String:
 		return custom.path_join("auth.json")
 	return home_dir().path_join(".codex").path_join("auth.json")
 
+
 func _codex_account_id(tokens: Dictionary, access_or_id: String) -> String:
 	var stored := str(tokens.get("account_id", ""))
 	if stored != "":
 		return stored
 	return _jwt_account_id(access_or_id)
+
 
 func _jwt_account_id(token: String) -> String:
 	var parts := token.split(".")
@@ -205,6 +272,7 @@ func _jwt_account_id(token: String) -> String:
 		return str(auth.get("chatgpt_account_id", ""))
 	return str(parsed.get("chatgpt_account_id", ""))
 
+
 func jwt_expired(token: String, skew_sec: int = 60) -> bool:
 	var parts := token.split(".")
 	if parts.size() < 2:
@@ -217,12 +285,14 @@ func jwt_expired(token: String, skew_sec: int = 60) -> bool:
 		return false
 	return Time.get_unix_time_from_system() + skew_sec >= exp
 
+
 func _b64url(chunk: String) -> String:
 	var padded := chunk.replace("-", "+").replace("_", "/")
 	while padded.length() % 4 != 0:
 		padded += "="
 	var bytes := Marshalls.base64_to_raw(padded)
 	return bytes.get_string_from_utf8()
+
 
 func _read_json(path: String) -> Dictionary:
 	if path == "" or not FileAccess.file_exists(path):

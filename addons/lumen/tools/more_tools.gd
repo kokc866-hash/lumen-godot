@@ -2,20 +2,76 @@
 class_name LumenMoreTools
 extends RefCounted
 
+## Extra tools that finish the 1.2 surface. Registered after the builtins so
+## generate_image / get_errors / run_tests replace the older stubs.
+
 var settings: LumenSettings
+
 
 func attach(p_settings: LumenSettings) -> void:
 	settings = p_settings
 
+
 func register(registry: LumenToolRegistry) -> void:
-	registry.register_tool(LumenToolSpec.new("fill_tiles", "Fill a rectangle of cells on a TileMapLayer.", _schema({"path": {"type": "string"}, "x": {"type": "integer"}, "y": {"type": "integer"}, "w": {"type": "integer"}, "h": {"type": "integer"}, "source_id": {"type": "integer"}, "atlas_x": {"type": "integer"}, "atlas_y": {"type": "integer"}}, ["atlas_x", "atlas_y"], ["path", "x", "y", "w", "h", "source_id"]), false, fill_tiles))
-	registry.register_tool(LumenToolSpec.new("erase_tiles", "Erase a rectangle of cells on a TileMapLayer.", _schema({"path": {"type": "string"}, "x": {"type": "integer"}, "y": {"type": "integer"}, "w": {"type": "integer"}, "h": {"type": "integer"}}, [], ["path", "x", "y", "w", "h"]), false, erase_tiles))
-	registry.register_tool(LumenToolSpec.new("attach_script", "Attach a script resource to a node.", _schema({"path": {"type": "string"}, "script": {"type": "string"}}, [], ["path", "script"]), false, attach_script))
-	registry.register_tool(LumenToolSpec.new("open_scene", "Open a scene in the editor.", _schema({"path": {"type": "string"}}, [], ["path"]), false, open_scene))
-	registry.register_tool(LumenToolSpec.new("save_scene", "Save the currently edited scene.", _schema({"path": {"type": "string"}}, ["path"]), false, save_scene))
-	registry.register_tool(LumenToolSpec.new("generate_image", "Write res://assets/lumen/*.png. Uses image_base_url when set.", _schema({"prompt": {"type": "string"}, "filename": {"type": "string"}, "size": {"type": "string"}}, ["filename", "size"], ["prompt"]), false, generate_image))
-	registry.register_tool(LumenToolSpec.new("get_errors", "Open scripts plus recent error/warning lines from godot.log.", _schema({}), true, get_errors))
-	registry.register_tool(LumenToolSpec.new("run_tests", "Play a test scene or list test scripts.", _schema({"scene": {"type": "string"}}, ["scene"]), false, run_tests))
+	registry.register_tool(LumenToolSpec.new(
+		"fill_tiles", "Fill a rectangle of cells on a TileMapLayer.",
+		_schema({
+			"path": {"type": "string"},
+			"x": {"type": "integer"},
+			"y": {"type": "integer"},
+			"w": {"type": "integer"},
+			"h": {"type": "integer"},
+			"source_id": {"type": "integer"},
+			"atlas_x": {"type": "integer"},
+			"atlas_y": {"type": "integer"},
+		}, ["atlas_x", "atlas_y"], ["path", "x", "y", "w", "h", "source_id"]),
+		false, fill_tiles
+	))
+	registry.register_tool(LumenToolSpec.new(
+		"erase_tiles", "Erase a rectangle of cells on a TileMapLayer.",
+		_schema({
+			"path": {"type": "string"},
+			"x": {"type": "integer"},
+			"y": {"type": "integer"},
+			"w": {"type": "integer"},
+			"h": {"type": "integer"},
+		}, [], ["path", "x", "y", "w", "h"]),
+		false, erase_tiles
+	))
+	registry.register_tool(LumenToolSpec.new(
+		"attach_script", "Attach a script resource to a node in the edited scene.",
+		_schema({
+			"path": {"type": "string"},
+			"script": {"type": "string"},
+		}, [], ["path", "script"]),
+		false, attach_script
+	))
+	registry.register_tool(LumenToolSpec.new(
+		"open_scene", "Open a scene in the editor.",
+		_schema({"path": {"type": "string"}}, [], ["path"]), false, open_scene
+	))
+	registry.register_tool(LumenToolSpec.new(
+		"save_scene", "Save the currently edited scene.",
+		_schema({"path": {"type": "string"}}, ["path"]), false, save_scene
+	))
+	registry.register_tool(LumenToolSpec.new(
+		"generate_image", "Write res://assets/lumen/*.png. Uses image_base_url when set.",
+		_schema({
+			"prompt": {"type": "string"},
+			"filename": {"type": "string"},
+			"size": {"type": "string"},
+		}, ["filename", "size"], ["prompt"]),
+		false, generate_image
+	))
+	registry.register_tool(LumenToolSpec.new(
+		"get_errors", "Open scripts plus recent error/warning lines from godot.log.",
+		_schema({}), true, get_errors
+	))
+	registry.register_tool(LumenToolSpec.new(
+		"run_tests", "Play a test scene or list test scripts.",
+		_schema({"scene": {"type": "string"}}, ["scene"]), false, run_tests
+	))
+
 
 func fill_tiles(args: Dictionary) -> Dictionary:
 	var layer := _layer(str(args.get("path", "")))
@@ -33,6 +89,7 @@ func fill_tiles(args: Dictionary) -> Dictionary:
 	EditorInterface.mark_scene_as_unsaved()
 	return {"ok": true, "cells": count}
 
+
 func erase_tiles(args: Dictionary) -> Dictionary:
 	var layer := _layer(str(args.get("path", "")))
 	if layer == null:
@@ -46,6 +103,7 @@ func erase_tiles(args: Dictionary) -> Dictionary:
 			count += 1
 	EditorInterface.mark_scene_as_unsaved()
 	return {"ok": true, "erased": count}
+
 
 func attach_script(args: Dictionary) -> Dictionary:
 	var node := _find(str(args.get("path", "")))
@@ -61,12 +119,14 @@ func attach_script(args: Dictionary) -> Dictionary:
 	EditorInterface.mark_scene_as_unsaved()
 	return {"ok": true, "script": script_path}
 
+
 func open_scene(args: Dictionary) -> Dictionary:
 	var path := str(args.get("path", ""))
 	if not FileAccess.file_exists(path):
 		return {"ok": false, "error": "Scene not found."}
 	EditorInterface.open_scene_from_path(path)
 	return {"ok": true, "path": path}
+
 
 func save_scene(args: Dictionary) -> Dictionary:
 	var as_path := str(args.get("path", "")).strip_edges()
@@ -76,6 +136,7 @@ func save_scene(args: Dictionary) -> Dictionary:
 	var err := EditorInterface.save_scene()
 	return {"ok": err == OK, "error": error_string(err) if err != OK else ""}
 
+
 func get_errors(_args: Dictionary) -> Dictionary:
 	var open_scripts: Array = []
 	var se := EditorInterface.get_script_editor()
@@ -84,7 +145,10 @@ func get_errors(_args: Dictionary) -> Dictionary:
 			if script:
 				open_scripts.append(script.resource_path)
 	var log_hits: Array = []
-	for log_path in [OS.get_user_data_dir().path_join("logs/godot.log"), ProjectSettings.globalize_path("user://logs/godot.log")]:
+	for log_path in [
+		OS.get_user_data_dir().path_join("logs/godot.log"),
+		ProjectSettings.globalize_path("user://logs/godot.log"),
+	]:
 		if not FileAccess.file_exists(log_path):
 			continue
 		var lines := FileAccess.get_file_as_string(log_path).split("\n")
@@ -96,18 +160,32 @@ func get_errors(_args: Dictionary) -> Dictionary:
 				if log_hits.size() >= 40:
 					break
 		break
-	return {"ok": true, "open_scripts": open_scripts, "log_hits": log_hits, "playing": EditorInterface.is_playing_scene(), "playing_scene": EditorInterface.get_playing_scene()}
+	return {
+		"ok": true,
+		"open_scripts": open_scripts,
+		"log_hits": log_hits,
+		"playing": EditorInterface.is_playing_scene(),
+		"playing_scene": EditorInterface.get_playing_scene(),
+	}
+
 
 func run_tests(args: Dictionary) -> Dictionary:
 	var scene := str(args.get("scene", settings.get_value("test_scene", "") if settings else ""))
 	if scene != "":
 		EditorInterface.play_custom_scene(scene)
 		return {"ok": true, "scene": scene}
-	for candidate in ["res://tests/test.tscn", "res://test/test.tscn", "res://addons/gut/gui/GutRunner.tscn"]:
+	for candidate in [
+		"res://tests/test.tscn",
+		"res://test/test.tscn",
+		"res://addons/gut/gui/GutRunner.tscn",
+		"res://addons/gdUnit4/src/ui/GdUnitInspector.tscn",
+		str(settings.get_value("gut_runner", "")) if settings else "",
+	]:
 		if FileAccess.file_exists(candidate):
 			EditorInterface.play_custom_scene(candidate)
 			return {"ok": true, "scene": candidate}
 	return {"ok": true, "hint": "Pass scene to play it."}
+
 
 func generate_image(args: Dictionary) -> Dictionary:
 	var prompt := str(args.get("prompt", "")).strip_edges()
@@ -118,15 +196,13 @@ func generate_image(args: Dictionary) -> Dictionary:
 		filename += ".png"
 	var dest := "res://assets/lumen/" + filename
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://assets/lumen"))
-	var img := Image.create(512, 512, false, Image.FORMAT_RGBA8)
-	img.fill(Color.from_hsv(float(abs(prompt.hash()) % 360) / 360.0, 0.35, 0.2))
-	var err := img.save_png(dest)
-	if settings and str(settings.get_value("image_base_url", "")) != "":
-		var remote := _remote_png(str(settings.get_value("image_base_url", "")), prompt, str(args.get("size", "512x512")), dest)
-		if bool(remote.get("ok", false)):
-			return remote
-		return {"ok": err == OK, "path": dest, "placeholder": true, "warning": str(remote.get("error", ""))}
-	return {"ok": err == OK, "path": dest, "placeholder": true, "prompt": prompt}
+	if settings == null or str(settings.get_value("image_base_url", "")).strip_edges() == "":
+		return {
+			"ok": false,
+			"error": "No image backend. Set image_base_url to an OpenAI-compatible /images/generations endpoint. No fake PNG.",
+		}
+	return _remote_png(str(settings.get_value("image_base_url", "")), prompt, str(args.get("size", "512x512")), dest)
+
 
 func _remote_png(base_url: String, prompt: String, size: String, dest: String) -> Dictionary:
 	var endpoint := base_url.rstrip("/")
@@ -144,7 +220,13 @@ func _remote_png(base_url: String, prompt: String, size: String, dest: String) -
 	var headers := PackedStringArray(["Content-Type: application/json"])
 	if settings and settings.image_api_key() != "":
 		headers.append("Authorization: Bearer %s" % settings.image_api_key())
-	var payload := JSON.stringify({"model": str(settings.get_value("image_model", "gpt-image-1")) if settings else "gpt-image-1", "prompt": prompt, "size": size, "response_format": "b64_json", "n": 1})
+	var payload := JSON.stringify({
+		"model": str(settings.get_value("image_model", "gpt-image-1")) if settings else "gpt-image-1",
+		"prompt": prompt,
+		"size": size,
+		"response_format": "b64_json",
+		"n": 1,
+	})
 	var http := HTTPClient.new()
 	var err := http.connect_to_host(host, port, TLSOptions.client() if tls else null)
 	if err != OK:
@@ -188,9 +270,11 @@ func _remote_png(base_url: String, prompt: String, size: String, dest: String) -
 	out.store_buffer(Marshalls.base64_to_raw(str(data[0].get("b64_json", ""))))
 	return {"ok": true, "path": dest, "placeholder": false}
 
+
 func _layer(path: String) -> TileMapLayer:
 	var node := _find(path)
 	return node as TileMapLayer if node is TileMapLayer else null
+
 
 func _find(path: String) -> Node:
 	var root := EditorInterface.get_edited_scene_root()
@@ -199,6 +283,7 @@ func _find(path: String) -> Node:
 	if path == "" or path == "." or path == str(root.name):
 		return root
 	return root.get_node_or_null(NodePath(path))
+
 
 func _schema(properties: Dictionary, optional: Array = [], required_override: Array = []) -> Dictionary:
 	var required: Array = required_override

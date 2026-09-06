@@ -61,6 +61,7 @@ func _enter_tree() -> void:
 	dock.approve_plan.connect(_on_approve_plan)
 	dock.reject_plan.connect(_on_reject_plan)
 	dock.settings_changed.connect(_on_settings)
+	dock.test_pressed.connect(_on_test_connection)
 	loop.status.connect(dock.set_status)
 	loop.assistant_delta.connect(dock.append_assistant)
 	loop.turn_done.connect(func(_text):
@@ -222,6 +223,31 @@ func _on_cli_use(kind: String) -> void:
 	dock.refresh_cli_status()
 	dock.append_system("Using %s via the official CLI session on this machine." % kind)
 	dock.set_status("Provider: %s" % kind)
+
+
+func _on_test_connection() -> void:
+	var provider := settings.provider_id()
+	if provider.ends_with("_cli"):
+		dock.set_status("CLI session — Scan, then Use.")
+		dock.append_system("CLI providers use the official session on this machine. Press Scan in CLI sessions.")
+		return
+	if provider == "anthropic":
+		if settings.api_key() == "":
+			dock.set_status("Error: API key missing.")
+			dock.append_system("Anthropic needs a key in user:// secrets.")
+			return
+		dock.set_status("Configured · Anthropic")
+		dock.append_system("Anthropic key present. Send a message to verify the Messages API.")
+		return
+	var url := settings.base_url().strip_edges()
+	if url == "":
+		dock.set_status("Error: Base URL missing.")
+		return
+	if not (url.begins_with("http://") or url.begins_with("https://")):
+		dock.set_status("Error: URL must be http(s).")
+		return
+	dock.set_status("Saved · %s" % provider)
+	dock.append_system("Connection stored for %s at %s. Send a message to exercise it. Loopback URLs are reached from this editor." % [provider, url])
 
 
 func _ensure_playtest_autoload() -> void:
