@@ -77,6 +77,7 @@ func _enter_tree() -> void:
 	mcp.configure(registry, log, int(settings.get_value("mcp_port", 8765)))
 	if bool(settings.get_value("mcp_enabled", false)):
 		mcp.start()
+	_ensure_playtest_autoload()
 	log.info("Lumen entered the editor.")
 
 
@@ -141,6 +142,9 @@ func _on_undo() -> void:
 	var result := snapshots.restore_last()
 	if bool(result.get("ok", false)):
 		LumenEditor.ei().get_resource_filesystem().scan()
+		var root := EditorInterface.get_edited_scene_root()
+		if root and root.scene_file_path != "":
+			EditorInterface.reload_scene_from_path(root.scene_file_path)
 		dock.append_system("Restored %s" % str(result.get("files", [])))
 	else:
 		dock.append_system(str(result.get("error", "Undo failed.")))
@@ -201,6 +205,13 @@ func _on_cli_use(kind: String) -> void:
 	if dock.has_method("refresh_cli_status"):
 		dock.refresh_cli_status()
 	dock.append_system("Using %s subscription via official CLI session. Usage counts on that account." % kind)
+
+
+func _ensure_playtest_autoload() -> void:
+	if ProjectSettings.has_setting("autoload/LumenPlaytestIO"):
+		return
+	add_autoload_singleton("LumenPlaytestIO", "res://addons/lumen/playtest/harness.gd")
+	log.info("Registered Autoload LumenPlaytestIO for playtest replay.")
 
 
 func _on_tool_proposed(call_id: String, name: String, args: Dictionary, readonly: bool) -> void:
