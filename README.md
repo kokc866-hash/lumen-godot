@@ -46,13 +46,24 @@ Settings live in `res://.lumen/project.json`. The API key lives in `user://lumen
 | OpenAI-compatible | your endpoint `/v1` | your key |
 | Anthropic | `https://api.anthropic.com` | `sk-ant-…` |
 
-Ollama for a large local agent (32B). Lumen sends `num_ctx` **65536** and `keep_alive` **30m** on loopback so the model stays loaded between tool steps. Drop **Context** to `32768` if VRAM is tight. Do not leave the Ollama default 4k window — that silently truncates the tool prompt.
+Ollama for a local agent. Lumen talks to Ollama over native `/api/chat` — the OpenAI `/v1` shim cannot set context size.
+
+Current local coders (Qwen3.6 27B, Qwen3-Coder 30B) are **256k native**. Ollama’s own agent guidance is **at least 64k**. Lumen therefore asks for 64k, not the old 4k/32k VRAM-tier default.
+
+| Setting | Default | Why |
+|---|---|---|
+| Context (`num_ctx`) | `65536` | Agent floor. Raise toward 128k/256k if `ollama ps` stays 100% GPU. |
+| Keep alive | `-1` | Large-model reload costs minutes. Stay resident. |
+| Max tokens | `4096` | Generation cap, not the window. |
+| Compact tools | on | Core tools in the prompt. Extras via `list_more_tools`. |
+
+**Test** loads the model once so the first turn is not a cold start.
 
 ```bash
-ollama pull qwen2.5-coder:32b
+ollama pull qwen3.6:27b
 ```
 
-Set the model field to `qwen2.5-coder:32b` (or another coder model with a `tools` tag).
+`qwen3-coder:30b` is the coding-specialist alternative (~19 GB Q4, 256k). Drop Context to `32768` only when `ollama ps` shows CPU offload.
 
 ## Existing CLI subscriptions
 

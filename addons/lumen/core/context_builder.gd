@@ -56,8 +56,8 @@ func system_preamble(settings: LumenSettings, skills: LumenSkillLoader) -> Strin
 	var agents := LumenAgentsMd.load_instructions()
 	var parts: PackedStringArray = PackedStringArray([
 		"You are Lumen, a Godot editor agent. Edit through tools only. Read a file before you change it. Never invent unread contents.",
-		"Use the native tool_calls channel. Do not wrap calls in markdown. Prefer a few focused tools per step. Smallest patch that works.",
-		"If a previous tool result was truncated, read a narrower range instead of guessing.",
+		"Use the native tool_calls channel. Do not wrap calls in markdown. One or two tools per step. Smallest patch that works.",
+		"Local models: if a needed tool is missing, call list_more_tools then enable_tools. If a tool result was truncated, read a narrower range.",
 		"Plan mode: write a plan and wait. Do not call write tools until the user approves.",
 		"Godot %s. Project %s. Edited scene %s (%s). Selected: %s. Open scripts: %s" % [
 			str((ctx.get("godot", {}) as Dictionary).get("string", "4.x")) if typeof(ctx.get("godot", {})) == TYPE_DICTIONARY else "4.x",
@@ -70,6 +70,5 @@ func system_preamble(settings: LumenSettings, skills: LumenSkillLoader) -> Strin
 		"Available skills (load_skill before following them):\n%s" % skills.describe_for_prompt(),
 	])
 	if agents != "":
-		parts.append("AGENTS.md:\n%s" % LumenJson.clamp_text(agents, 4000))
+		parts.append("AGENTS.md:\n%s" % LumenJson.clamp_text(agents, 2500))
 	return "\n\n".join(parts)
-

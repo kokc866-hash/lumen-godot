@@ -10,6 +10,9 @@ static func from_content(text: String) -> Array:
 	var out: Array = []
 	if text.strip_edges() == "":
 		return out
+	text = _strip_think(text)
+	if text.strip_edges() == "":
+		return out
 	out.append_array(_from_tags(text, "tool_call"))
 	if not out.is_empty():
 		return out
@@ -21,6 +24,21 @@ static func from_content(text: String) -> Array:
 		return out
 	var bare: Variant = JSON.parse_string(text.strip_edges())
 	return _normalize(bare)
+
+
+static func _strip_think(text: String) -> String:
+	var out := text
+	for pair in [["<think>", "</think>"], ["<thinking>", "</thinking>"]]:
+		while true:
+			var a := out.find(pair[0])
+			if a < 0:
+				break
+			var b := out.find(pair[1], a)
+			if b < 0:
+				out = out.substr(0, a)
+				break
+			out = out.substr(0, a) + out.substr(b + pair[1].length())
+	return out.strip_edges()
 
 
 static func _from_tags(text: String, tag: String) -> Array:
