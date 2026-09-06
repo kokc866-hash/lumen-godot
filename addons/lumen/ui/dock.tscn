@@ -155,7 +155,37 @@ text = "Context"
 unique_name_in_owner = true
 layout_mode = 2
 placeholder_text = "65536"
-tooltip_text = "num_ctx sent to Ollama / LM Studio. Agents need ≥ 32k. Default 64k."
+tooltip_text = "Sent as options.num_ctx on Ollama /api/chat."
+
+[node name="KeepLabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
+layout_mode = 2
+text = "Keep alive"
+
+[node name="KeepEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "-1"
+tooltip_text = "Sent as keep_alive. -1 keeps the model loaded."
+
+[node name="TempLabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
+layout_mode = 2
+text = "Temperature"
+
+[node name="TempEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "0.2"
+tooltip_text = "Sent as options.temperature."
+
+[node name="MaxLabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
+layout_mode = 2
+text = "Max tokens"
+
+[node name="MaxEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "4096"
+tooltip_text = "Sent as options.num_predict / max_tokens."
 
 [node name="FlagsRow" type="HBoxContainer" parent="Root/ConnFold/ConnInner"]
 layout_mode = 2
@@ -172,6 +202,18 @@ unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "JSON-RPC on 127.0.0.1 only."
 text = "Local MCP"
+
+[node name="CompactCheck" type="CheckBox" parent="Root/ConnFold/ConnInner/FlagsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Local models get the core tool set only. The agent can enable extras via list_more_tools."
+text = "Compact tools"
+
+[node name="ThinkCheck" type="CheckBox" parent="Root/ConnFold/ConnInner/FlagsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Sent as think on Ollama /api/chat. Off is faster for tool use."
+text = "Think"
 
 [node name="SaveRow" type="HBoxContainer" parent="Root/ConnFold/ConnInner"]
 layout_mode = 2
