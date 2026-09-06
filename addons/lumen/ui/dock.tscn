@@ -86,6 +86,24 @@ layout_mode = 2
 secret = true
 placeholder_text = "stored in user://"
 
+[node name="ILabel" type="Label" parent="Root/SettingsGrid"]
+layout_mode = 2
+text = "Image URL"
+
+[node name="ImageUrlEdit" type="LineEdit" parent="Root/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "optional /v1 image endpoint"
+
+[node name="PortLabel" type="Label" parent="Root/SettingsGrid"]
+layout_mode = 2
+text = "MCP port"
+
+[node name="McpPortEdit" type="LineEdit" parent="Root/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "8765"
+
 [node name="PlanCheck" type="CheckBox" parent="Root"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -141,6 +159,11 @@ text = "Use Codex session"
 unique_name_in_owner = true
 layout_mode = 2
 text = "Use Claude session"
+
+[node name="UseGemini" type="Button" parent="Root/CliUseRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Use Gemini session"
 
 [node name="SaveSettings" type="Button" parent="Root"]
 unique_name_in_owner = true
