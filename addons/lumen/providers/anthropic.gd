@@ -22,16 +22,16 @@ func attach(host: Node, p_log: LumenLogger) -> void:
 	http.request_completed.connect(_on_completed)
 
 
-func chat(api_key: String, model: String, system: String, messages: Array, tools: Array, max_tokens: int, temperature: float) -> void:
+func chat(api_key: String, model: String, system: String, messages: Array, tools: Array, max_tokens: int, temperature: float, use_oauth: bool = false) -> void:
 	if _busy:
 		failed.emit("Provider is already running a request.")
 		return
 	if api_key == "":
-		failed.emit("Anthropic API key is empty. Set it in Lumen settings (stored in user://, not the project).")
+		failed.emit("Anthropic credential is empty. Use an API key or a Claude Code CLI session.")
 		return
 	_busy = true
 	var payload := {
-		"model": model,
+		"model": model if model != "" else "claude-sonnet-4-5",
 		"max_tokens": max_tokens,
 		"temperature": temperature,
 		"system": system,
@@ -41,9 +41,13 @@ func chat(api_key: String, model: String, system: String, messages: Array, tools
 		payload["tools"] = _to_anthropic_tools(tools)
 	var headers := PackedStringArray([
 		"Content-Type: application/json",
-		"x-api-key: %s" % api_key,
 		"anthropic-version: 2023-06-01",
 	])
+	if use_oauth:
+		headers.append("Authorization: Bearer %s" % api_key)
+		headers.append("anthropic-beta: oauth-2025-04-20")
+	else:
+		headers.append("x-api-key: %s" % api_key)
 	var err := http.request(
 		"https://api.anthropic.com/v1/messages",
 		headers,
