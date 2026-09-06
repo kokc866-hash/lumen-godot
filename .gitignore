@@ -1,0 +1,11 @@
+.godot/
+*.uid
+*.import
+.lumen/cache/
+.lumen/snapshots/
+.lumen/secrets.json
+user://
+*.os
+*.dblite
+.DS_Store
+Thumbs.db
