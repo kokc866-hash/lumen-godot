@@ -19,6 +19,8 @@ signal cli_use(kind: String)
 @onready var provider_option: OptionButton = %ProviderOption
 @onready var base_url_edit: LineEdit = %BaseUrlEdit
 @onready var key_edit: LineEdit = %KeyEdit
+@onready var image_url_edit: LineEdit = %ImageUrlEdit
+@onready var mcp_port_edit: LineEdit = %McpPortEdit
 @onready var plan_check: CheckBox = %PlanCheck
 @onready var mcp_check: CheckBox = %McpCheck
 @onready var plan_box: VBoxContainer = %PlanBox
@@ -56,6 +58,8 @@ func _ready() -> void:
 		%LoginGemini.pressed.connect(func(): cli_login.emit("gemini"))
 		%UseCodex.pressed.connect(func(): cli_use.emit("codex"))
 		%UseClaude.pressed.connect(func(): cli_use.emit("claude"))
+		if has_node("%UseGemini"):
+			%UseGemini.pressed.connect(func(): cli_use.emit("gemini"))
 	provider_option.item_selected.connect(_on_provider)
 	composer.gui_input.connect(_on_composer_input)
 	plan_box.visible = false
@@ -83,6 +87,10 @@ func _load_fields() -> void:
 	base_url_edit.text = settings.base_url()
 	model_edit.text = settings.model()
 	key_edit.text = settings.api_key()
+	if has_node("%ImageUrlEdit"):
+		image_url_edit.text = str(settings.get_value("image_base_url", ""))
+	if has_node("%McpPortEdit"):
+		mcp_port_edit.text = str(settings.get_value("mcp_port", 8765))
 	plan_check.button_pressed = settings.plan_mode()
 	mcp_check.button_pressed = bool(settings.get_value("mcp_enabled", false))
 
@@ -95,6 +103,10 @@ func _save_fields() -> void:
 	settings.set_value("model", model_edit.text.strip_edges())
 	settings.set_value("plan_mode", plan_check.button_pressed)
 	settings.set_value("mcp_enabled", mcp_check.button_pressed)
+	if has_node("%ImageUrlEdit"):
+		settings.set_value("image_base_url", image_url_edit.text.strip_edges())
+	if has_node("%McpPortEdit"):
+		settings.set_value("mcp_port", int(mcp_port_edit.text.strip_edges()) if mcp_port_edit.text.strip_edges().is_valid_int() else 8765)
 	settings.set_api_key(key_edit.text.strip_edges())
 	settings_changed.emit()
 	set_status("Settings saved. API key stays in user://lumen/secrets.json.")
@@ -119,7 +131,9 @@ func _on_provider(index: int) -> void:
 			if model_edit.text.strip_edges() == "":
 				model_edit.text = "claude-sonnet-4-5"
 		7:
-			base_url_edit.text = "(gemini login, inference needs API endpoint)"
+			base_url_edit.text = "(gemini CLI session)"
+			if model_edit.text.strip_edges() == "":
+				model_edit.text = "gemini-2.5-flash"
 		_:
 			pass
 
@@ -220,6 +234,22 @@ func add_tool_prompt(call_id: String, name: String, args: Dictionary, readonly: 
 	row.add_child(always)
 	row.add_child(no)
 	tool_box.add_child(row)
+
+
+func restore_messages(messages: Array) -> void:
+	if messages.is_empty():
+		return
+	transcript.clear()
+	append_system("Restored last chat from user://lumen/chats/current.json")
+	for msg in messages:
+		var role := str(msg.get("role", ""))
+		var text := str(msg.get("content", ""))
+		if text == "":
+			continue
+		if role == "user":
+			append_user(text)
+		elif role == "assistant":
+			append_assistant(text)
 
 
 func reset_transcript() -> void:
