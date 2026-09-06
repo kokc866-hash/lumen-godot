@@ -4,6 +4,8 @@ extends RefCounted
 
 signal status(text: String)
 signal assistant_delta(text: String)
+signal stream_delta(text: String)
+signal todos_changed(items: Array)
 signal tool_proposed(call_id: String, name: String, args: Dictionary, readonly: bool)
 signal turn_done(message: String)
 signal turn_failed(message: String)
@@ -15,6 +17,9 @@ const WRITE_TOOLS := [
 	"create_node", "set_node_property", "delete_node", "reparent_node",
 	"set_project_setting", "set_tile_cell", "fill_tiles", "erase_tiles",
 	"generate_image", "attach_script", "open_scene", "save_scene",
+	"duplicate_node", "connect_signal", "disconnect_signal", "add_to_group",
+	"play_animation", "write_shader", "create_csharp_script", "import_asset",
+	"mcp_call", "create_primitive_mesh", "set_mesh_material", "add_csg", "instance_3d",
 ]
 
 var plugin: EditorPlugin
@@ -38,6 +43,7 @@ var _pending_calls: Array = []
 var _approvals: Dictionary = {}
 var _always: Dictionary = {}
 var _continued_length := false
+var _streamed := ""
 
 
 func setup(
@@ -65,6 +71,8 @@ func setup(
 	if not openai.finished.is_connected(_on_openai):
 		openai.finished.connect(_on_openai)
 		openai.failed.connect(_fail)
+	if openai.has_signal("stream_delta") and not openai.stream_delta.is_connected(_on_stream):
+		openai.stream_delta.connect(_on_stream)
 	if not anthropic.finished.is_connected(_on_openai):
 		anthropic.finished.connect(_on_openai)
 		anthropic.failed.connect(_fail)
@@ -149,6 +157,17 @@ func reject_plan() -> void:
 	turn_done.emit("Plan rejected.")
 
 
+func stop() -> void:
+	if not running:
+		return
+	running = false
+	_pending_calls.clear()
+	_approvals.clear()
+	if openai:
+		openai.cancel()
+	turn_done.emit("Stopped.")
+
+
 func _step() -> void:
 	_compact()
 	status.emit("Talking to %s…" % settings.provider_id())
@@ -226,6 +245,11 @@ func _step() -> void:
 	openai.chat(settings.base_url(), settings.api_key(), payload)
 
 
+func load_messages(rows: Array) -> void:
+	messages = rows.duplicate(true)
+	_save_persisted()
+
+
 func load_persisted() -> void:
 	var path := LumenPaths.CHAT_DIR.path_join("current.json")
 	var stored: Variant = LumenJson.read_file(path, [])
@@ -236,6 +260,12 @@ func load_persisted() -> void:
 func _save_persisted() -> void:
 	LumenPaths.ensure_dirs()
 	LumenJson.write_file(LumenPaths.CHAT_DIR.path_join("current.json"), messages)
+
+
+func _on_stream(text: String) -> void:
+	if text != "":
+		_streamed += text
+		stream_delta.emit(text)
 
 
 func _on_openai(result: Dictionary) -> void:
@@ -258,8 +288,11 @@ func _on_openai(result: Dictionary) -> void:
 			message["content"] = ""
 	messages.append(message)
 	_save_persisted()
+	var streamed := _streamed
+	_streamed = ""
 	if text != "":
-		assistant_delta.emit(text)
+		if streamed == "":
+			assistant_delta.emit(text)
 		if settings.plan_mode() and not plan.has_approval() and _looks_like_plan(text) and tool_calls.is_empty():
 			running = false
 			var parsed := _extract_plan(text)
@@ -287,7 +320,7 @@ func _on_openai(result: Dictionary) -> void:
 	for call in _pending_calls:
 		var fn: Dictionary = call.get("function", {})
 		var name := str(fn.get("name", ""))
-		var args := _parse_args(str(fn.get("arguments", "{}")))
+		var args := _parse_args(fn.get("arguments", {}))
 		var readonly := registry.is_readonly(name)
 		if settings.plan_mode() and not plan.has_approval() and name in WRITE_TOOLS:
 			messages.append({
@@ -317,7 +350,7 @@ func _flush_approvals() -> void:
 		var id := str(call.get("id", ""))
 		var fn: Dictionary = call.get("function", {})
 		var name := str(fn.get("name", ""))
-		var args := _parse_args(str(fn.get("arguments", "{}")))
+		var args := _parse_args(fn.get("arguments", {}))
 		var allowed := bool(_approvals.get(id, false))
 		var result: Dictionary
 		if args.get("_parse_error", false):
@@ -342,8 +375,10 @@ func _flush_approvals() -> void:
 	_step()
 
 
-func _parse_args(raw: String) -> Dictionary:
-	var parsed: Variant = JSON.parse_string(raw if raw != "" else "{}")
+func _parse_args(raw: Variant) -> Dictionary:
+	if typeof(raw) == TYPE_DICTIONARY:
+		return raw
+	var parsed: Variant = JSON.parse_string(str(raw) if str(raw) != "" else "{}")
 	if typeof(parsed) == TYPE_DICTIONARY:
 		return parsed
 	return {"_parse_error": true}
