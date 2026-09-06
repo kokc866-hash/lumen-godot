@@ -44,16 +44,15 @@ Settings live in `res://.lumen/project.json`. The API key lives in `user://lumen
 | Ollama | `http://127.0.0.1:11434/v1` | empty |
 | LM Studio | `http://127.0.0.1:1234/v1` | empty |
 | OpenAI-compatible | your endpoint `/v1` | your key |
-| Grok (xAI) | `https://api.x.ai/v1` | your xAI key |
 | Anthropic | `https://api.anthropic.com` | `sk-ant-…` |
 
-Ollama example:
+Ollama for a large local agent (32B). Lumen sends `num_ctx` **65536** and `keep_alive` **30m** on loopback so the model stays loaded between tool steps. Drop **Context** to `32768` if VRAM is tight. Do not leave the Ollama default 4k window — that silently truncates the tool prompt.
 
 ```bash
-ollama pull qwen2.5-coder:7b
+ollama pull qwen2.5-coder:32b
 ```
 
-Set the model field to `qwen2.5-coder:7b`.
+Set the model field to `qwen2.5-coder:32b` (or another coder model with a `tools` tag).
 
 ## Existing CLI subscriptions
 

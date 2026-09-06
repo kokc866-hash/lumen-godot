@@ -66,12 +66,11 @@ theme_override_font_sizes/font_size = 11
 theme_override_colors/font_color = Color(0.604, 0.678, 0.761, 1)
 text = ""
 clip_text = true
-autowrap_mode = 0
 
 [node name="InsertContext" type="Button" parent="Root/ContextBar"]
 unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "Insert the selected node or scene path into the composer as @mention."
+tooltip_text = "Insert the selected node or scene path as @mention."
 text = "Insert @"
 
 [node name="ConnFold" type="FoldableContainer" parent="Root"]
@@ -147,6 +146,16 @@ text = "MCP port"
 unique_name_in_owner = true
 layout_mode = 2
 placeholder_text = "8765"
+
+[node name="CtxLabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
+layout_mode = 2
+text = "Context"
+
+[node name="CtxEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "65536"
+tooltip_text = "num_ctx sent to Ollama / LM Studio. Agents need ≥ 32k. Default 64k."
 
 [node name="FlagsRow" type="HBoxContainer" parent="Root/ConnFold/ConnInner"]
 layout_mode = 2

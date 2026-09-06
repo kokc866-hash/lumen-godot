@@ -160,7 +160,7 @@ func _step() -> void:
 			settings.model(),
 			messages,
 			tools,
-			int(settings.get_value("max_tokens", 8192)),
+			int(settings.get_value("max_tokens", 4096)),
 			float(settings.get_value("temperature", 0.2))
 		)
 		return
@@ -187,7 +187,7 @@ func _step() -> void:
 			system,
 			rest,
 			tools,
-			int(settings.get_value("max_tokens", 8192)),
+			int(settings.get_value("max_tokens", 4096)),
 			float(settings.get_value("temperature", 0.2)),
 			oauth
 		)
@@ -206,7 +206,7 @@ func _step() -> void:
 			settings.model() if settings.model() != "" else "gemini-2.5-flash",
 			messages,
 			tools,
-			int(settings.get_value("max_tokens", 8192)),
+			int(settings.get_value("max_tokens", 4096)),
 			float(settings.get_value("temperature", 0.2))
 		)
 		return
