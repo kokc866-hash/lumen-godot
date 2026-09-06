@@ -7,6 +7,9 @@ signal undo_pressed
 signal approve_plan
 signal reject_plan
 signal settings_changed
+signal cli_scan
+signal cli_login(kind: String)
+signal cli_use(kind: String)
 
 @onready var transcript: RichTextLabel = %Transcript
 @onready var composer: TextEdit = %Composer
@@ -23,11 +26,17 @@ signal settings_changed
 @onready var tool_box: VBoxContainer = %ToolBox
 
 var settings: LumenSettings
+var cli: LumenCliAuth
 
 
 func bind_settings(p_settings: LumenSettings) -> void:
 	settings = p_settings
 	_load_fields()
+
+
+func bind_cli(p_cli: LumenCliAuth) -> void:
+	cli = p_cli
+	refresh_cli_status()
 
 
 func _ready() -> void:
@@ -37,6 +46,16 @@ func _ready() -> void:
 	%ApprovePlan.pressed.connect(func(): approve_plan.emit())
 	%RejectPlan.pressed.connect(func(): reject_plan.emit())
 	%SaveSettings.pressed.connect(_save_fields)
+	if has_node("%ScanCli"):
+		%ScanCli.pressed.connect(func():
+			cli_scan.emit()
+			refresh_cli_status()
+		)
+		%LoginCodex.pressed.connect(func(): cli_login.emit("codex"))
+		%LoginClaude.pressed.connect(func(): cli_login.emit("claude"))
+		%LoginGemini.pressed.connect(func(): cli_login.emit("gemini"))
+		%UseCodex.pressed.connect(func(): cli_use.emit("codex"))
+		%UseClaude.pressed.connect(func(): cli_use.emit("claude"))
 	provider_option.item_selected.connect(_on_provider)
 	composer.gui_input.connect(_on_composer_input)
 	plan_box.visible = false
@@ -52,6 +71,9 @@ func _seed_providers() -> void:
 	provider_option.add_item("openai", 2)
 	provider_option.add_item("anthropic", 3)
 	provider_option.add_item("custom", 4)
+	provider_option.add_item("codex_cli", 5)
+	provider_option.add_item("claude_cli", 6)
+	provider_option.add_item("gemini_cli", 7)
 
 
 func _load_fields() -> void:
@@ -88,6 +110,16 @@ func _on_provider(index: int) -> void:
 			base_url_edit.text = "https://api.openai.com/v1"
 		3:
 			base_url_edit.text = "https://api.anthropic.com"
+		5:
+			base_url_edit.text = "(codex login session)"
+			if model_edit.text.strip_edges() == "":
+				model_edit.text = "gpt-5.3-codex"
+		6:
+			base_url_edit.text = "(claude /login session)"
+			if model_edit.text.strip_edges() == "":
+				model_edit.text = "claude-sonnet-4-5"
+		7:
+			base_url_edit.text = "(gemini login, inference needs API endpoint)"
 		_:
 			pass
 
@@ -193,6 +225,15 @@ func add_tool_prompt(call_id: String, name: String, args: Dictionary, readonly: 
 func reset_transcript() -> void:
 	transcript.clear()
 	append_system("New chat. Previous context dropped.")
+
+
+func refresh_cli_status() -> void:
+	if not has_node("%CliStatus"):
+		return
+	if cli == null:
+		%CliStatus.text = "CLI sessions: not bound."
+		return
+	%CliStatus.text = cli.status_line()
 
 
 func _esc(text: String) -> String:
