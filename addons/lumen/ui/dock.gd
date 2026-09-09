@@ -11,6 +11,9 @@ signal cli_scan
 signal cli_login(kind: String)
 signal cli_use(kind: String)
 signal test_pressed
+signal stop_pressed
+signal models_pressed
+signal chat_open(id: String)
 
 const PROVIDERS := [
 	{"id": "ollama", "label": "Ollama", "url": "http://127.0.0.1:11434/v1", "model": "qwen3.6:27b"},
@@ -46,6 +49,9 @@ var _busy := false
 var _seeding := false
 var editor_scene: String = ""
 var editor_selected: String = ""
+var _mention: PopupMenu
+var _stream_open := false
+var _chat_ids: PackedStringArray = PackedStringArray()
 
 
 func bind_settings(p_settings: LumenSettings) -> void:
@@ -65,10 +71,10 @@ func commit_settings() -> void:
 
 func set_busy(value: bool) -> void:
 	_busy = value
-	send_button.disabled = value
+	send_button.disabled = false
 	composer.editable = not value
 	%NewButton.disabled = value
-	send_button.text = "Working" if value else "Send"
+	send_button.text = "Stop" if value else "Send"
 
 
 func _ready() -> void:
@@ -82,6 +88,11 @@ func _ready() -> void:
 		%TestConnection.pressed.connect(func():
 			_save_fields(false)
 			test_pressed.emit()
+		)
+	if has_node("%ListModels"):
+		%ListModels.pressed.connect(func():
+			_save_fields(false)
+			models_pressed.emit()
 		)
 	%ScanCli.pressed.connect(func():
 		cli_scan.emit()
@@ -101,10 +112,18 @@ func _ready() -> void:
 	if has_node("%ThinkCheck"):
 		%ThinkCheck.toggled.connect(func(_on): _save_fields(false))
 	composer.gui_input.connect(_on_composer_input)
+	composer.text_changed.connect(_on_composer_text)
+	_mention = PopupMenu.new()
+	add_child(_mention)
+	_mention.id_pressed.connect(_on_mention_pick)
 	plan_box.visible = false
 	_seed_providers()
 	if has_node("%InsertContext"):
 		%InsertContext.pressed.connect(_on_insert_context)
+	if has_node("%ChatSearch"):
+		%ChatSearch.text_changed.connect(func(t): refresh_chats(t))
+	if has_node("%ChatList"):
+		%ChatList.item_selected.connect(_on_chat_selected)
 	append_system("Local-first agent. Open Connection or CLI sessions, then describe a change.")
 
 
@@ -251,8 +270,19 @@ func _select_provider(name: String) -> void:
 	provider_option.select(0)
 
 
+func apply_models(names: PackedStringArray) -> void:
+	if names.is_empty():
+		append_system("Runtime reported no models.")
+		return
+	if model_edit.text.strip_edges() == "":
+		model_edit.text = names[0]
+		_save_fields(false)
+	append_system("Models: %s" % ", ".join(names))
+
+
 func _on_send() -> void:
 	if _busy:
+		stop_pressed.emit()
 		return
 	var text := composer.text.strip_edges()
 	if text == "":
@@ -294,8 +324,55 @@ func append_user(text: String) -> void:
 
 
 func append_assistant(text: String) -> void:
+	end_stream()
 	var accent := _accent_hex()
 	transcript.append_text("[b][color=%s]Lumen[/color][/b]\n%s\n\n" % [accent, _esc(text)])
+
+
+func append_stream(text: String) -> void:
+	if text == "":
+		return
+	if not _stream_open:
+		var accent := _accent_hex()
+		transcript.append_text("[b][color=%s]Lumen[/color][/b]\n" % accent)
+		_stream_open = true
+	transcript.append_text(_esc(text))
+
+
+func end_stream() -> void:
+	if _stream_open:
+		transcript.append_text("\n\n")
+		_stream_open = false
+
+
+func refresh_chats(query: String = "") -> void:
+	if not has_node("%ChatList"):
+		return
+	%ChatList.clear()
+	_chat_ids = PackedStringArray()
+	for row in LumenChatStore.list_chats(query):
+		_chat_ids.append(str(row.get("id", "")))
+		%ChatList.add_item(str(row.get("title", row.get("id", ""))))
+
+
+func _on_chat_selected(index: int) -> void:
+	if index < 0 or index >= _chat_ids.size():
+		return
+	chat_open.emit(_chat_ids[index])
+
+
+func refresh_todos() -> void:
+	if not has_node("%TodoBox"):
+		return
+	var items: Array = LumenTodos.items
+	%TodoBox.visible = not items.is_empty()
+	if not has_node("%TodoList"):
+		return
+	var lines := PackedStringArray()
+	for row in items:
+		var mark := "x" if bool(row.get("done", false)) else " "
+		lines.append("[%s] %s" % [mark, str(row.get("text", ""))])
+	%TodoList.text = "\n".join(lines)
 
 
 func append_tool(name: String, detail: String) -> void:
@@ -483,3 +560,78 @@ func _drop_paths(data: Variant) -> PackedStringArray:
 		if res is Resource and str(res.resource_path) != "":
 			out.append(str(res.resource_path))
 	return out
+
+
+func _on_composer_text() -> void:
+	if _mention == null:
+		return
+	var token := _at_token()
+	if token == "":
+		_mention.hide()
+		return
+	_mention.clear()
+	var shown := 0
+	if editor_scene != "" and editor_scene.to_lower().find(token.to_lower()) >= 0:
+		_mention.add_item(editor_scene)
+		shown += 1
+	if editor_selected != "":
+		_mention.add_item(editor_selected)
+		shown += 1
+	shown += _add_file_mentions("res://", token.to_lower(), 8)
+	if shown == 0:
+		_mention.hide()
+		return
+	var pos := composer.get_screen_position() + Vector2(0, composer.size.y)
+	_mention.position = pos
+	_mention.popup()
+
+
+func _add_file_mentions(dir_path: String, needle: String, limit: int) -> int:
+	var added := 0
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
+		return 0
+	dir.list_dir_begin()
+	var name := dir.get_next()
+	while name != "" and added < limit:
+		if name.begins_with(".") or name == "addons":
+			name = dir.get_next()
+			continue
+		var child := dir_path.path_join(name)
+		if dir.current_is_dir():
+			added += _add_file_mentions(child, needle, limit - added)
+		elif name.to_lower().find(needle) >= 0 and (name.ends_with(".gd") or name.ends_with(".cs") or name.ends_with(".tscn") or name.ends_with(".gdshader")):
+			_mention.add_item(child)
+			added += 1
+		name = dir.get_next()
+	dir.list_dir_end()
+	return added
+
+
+func _at_token() -> String:
+	var line := composer.get_line(composer.get_caret_line())
+	var col := composer.get_caret_column()
+	var left := line.substr(0, col)
+	var at := left.rfind("@")
+	if at < 0:
+		return ""
+	var token := left.substr(at + 1)
+	if " " in token or "\t" in token:
+		return ""
+	return token
+
+
+func _on_mention_pick(id: int) -> void:
+	var path := _mention.get_item_text(id)
+	var line_i := composer.get_caret_line()
+	var line := composer.get_line(line_i)
+	var col := composer.get_caret_column()
+	var left := line.substr(0, col)
+	var at := left.rfind("@")
+	if at < 0:
+		insert_mention(path)
+		return
+	var new_line := left.substr(0, at) + "@" + path + " " + line.substr(col)
+	composer.set_line(line_i, new_line)
+	composer.set_caret_column((left.substr(0, at) + "@" + path + " ").length())
+	_mention.hide()
