@@ -38,6 +38,8 @@ func _enter_tree() -> void:
 	var extras := LumenEditorExtras.new()
 	extras.attach(settings, self)
 	extras.register(registry)
+	var query := LumenSceneQuery.new()
+	query.register(registry)
 	registry.mark_extras()
 	registry.register_meta()
 	plan = LumenPlanMode.new()
