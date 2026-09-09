@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://addons/lumen/ui/dock.gd" id="1"]
 
 [node name="LumenDock" type="Control"]
-custom_minimum_size = Vector2(320, 420)
+custom_minimum_size = Vector2(300, 420)
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -17,40 +17,62 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 6.0
-offset_right = -8.0
-offset_bottom = -6.0
-theme_override_constants/separation = 6
+offset_left = 6.0
+offset_top = 4.0
+offset_right = -6.0
+offset_bottom = -4.0
+theme_override_constants/separation = 4
 
 [node name="Header" type="HBoxContainer" parent="Root"]
+unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 5
 
 [node name="Title" type="Label" parent="Root/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Lumen"
+theme_override_font_sizes/font_size = 14
+
+[node name="ModelChipWrap" type="PanelContainer" parent="Root/Header"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Lumen"
-theme_override_font_sizes/font_size = 15
 
-[node name="ConnChip" type="Label" parent="Root/Header"]
+[node name="ModelChip" type="Label" parent="Root/Header/ModelChipWrap"]
+unique_name_in_owner = true
+layout_mode = 2
+clip_text = true
+text = ""
+tooltip_text = "Current model"
+theme_override_font_sizes/font_size = 11
+
+[node name="ConnChipWrap" type="PanelContainer" parent="Root/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ConnChip" type="Label" parent="Root/Header/ConnChipWrap"]
 unique_name_in_owner = true
 layout_mode = 2
 text = ""
-theme_override_font_sizes/font_size = 12
-theme_override_colors/font_color = Color(0.604, 0.678, 0.761, 1)
+theme_override_font_sizes/font_size = 11
 
 [node name="NewButton" type="Button" parent="Root/Header"]
 unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "Start a new chat. Drops the saved transcript."
+tooltip_text = "Archive this chat and start a new one."
 text = "New"
+flat = true
 
 [node name="UndoButton" type="Button" parent="Root/Header"]
 unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Restore files and the edited scene from the last agent turn."
 text = "Undo"
+flat = true
+
+[node name="HeadSep" type="HSeparator" parent="Root"]
+layout_mode = 2
 
 [node name="ContextBar" type="HBoxContainer" parent="Root"]
 unique_name_in_owner = true
@@ -71,28 +93,7 @@ clip_text = true
 unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Insert the selected node or scene path as @mention."
-text = "Insert @"
-
-[node name="ChatFold" type="FoldableContainer" parent="Root"]
-unique_name_in_owner = true
-layout_mode = 2
-title = "Chats"
-folded = true
-
-[node name="ChatInner" type="VBoxContainer" parent="Root/ChatFold"]
-layout_mode = 2
-theme_override_constants/separation = 4
-
-[node name="ChatSearch" type="LineEdit" parent="Root/ChatFold/ChatInner"]
-unique_name_in_owner = true
-layout_mode = 2
-placeholder_text = "Search chats"
-
-[node name="ChatList" type="ItemList" parent="Root/ChatFold/ChatInner"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 72)
-layout_mode = 2
-max_text_lines = 1
+text = "@"
 
 [node name="ConnFold" type="FoldableContainer" parent="Root"]
 unique_name_in_owner = true
@@ -150,92 +151,6 @@ layout_mode = 2
 secret = true
 placeholder_text = "user:// secrets"
 
-[node name="ILabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-layout_mode = 2
-text = "Image URL"
-
-[node name="ImageUrlEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-placeholder_text = "optional /v1 images"
-
-[node name="PortLabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-layout_mode = 2
-text = "MCP port"
-
-[node name="McpPortEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-placeholder_text = "8765"
-
-[node name="CtxLabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-layout_mode = 2
-text = "Context"
-
-[node name="CtxEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-placeholder_text = "65536"
-tooltip_text = "Sent as options.num_ctx on Ollama /api/chat."
-
-[node name="KeepLabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-layout_mode = 2
-text = "Keep alive"
-
-[node name="KeepEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-placeholder_text = "-1"
-tooltip_text = "Sent as keep_alive. -1 keeps the model loaded."
-
-[node name="TempLabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-layout_mode = 2
-text = "Temperature"
-
-[node name="TempEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-placeholder_text = "0.2"
-tooltip_text = "Sent as options.temperature."
-
-[node name="MaxLabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-layout_mode = 2
-text = "Max tokens"
-
-[node name="MaxEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-placeholder_text = "4096"
-tooltip_text = "Sent as options.num_predict / max_tokens."
-
-[node name="FlagsRow" type="HBoxContainer" parent="Root/ConnFold/ConnInner"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="PlanCheck" type="CheckBox" parent="Root/ConnFold/ConnInner/FlagsRow"]
-unique_name_in_owner = true
-layout_mode = 2
-tooltip_text = "Write tools wait until you approve a plan."
-text = "Plan mode"
-
-[node name="McpCheck" type="CheckBox" parent="Root/ConnFold/ConnInner/FlagsRow"]
-unique_name_in_owner = true
-layout_mode = 2
-tooltip_text = "JSON-RPC on 127.0.0.1 only."
-text = "Local MCP"
-
-[node name="CompactCheck" type="CheckBox" parent="Root/ConnFold/ConnInner/FlagsRow"]
-unique_name_in_owner = true
-layout_mode = 2
-tooltip_text = "Local models get the core tool set only. The agent can enable extras via list_more_tools."
-text = "Compact tools"
-
-[node name="ThinkCheck" type="CheckBox" parent="Root/ConnFold/ConnInner/FlagsRow"]
-unique_name_in_owner = true
-layout_mode = 2
-tooltip_text = "Sent as think on Ollama /api/chat. Off is faster for tool use."
-text = "Think"
-
 [node name="SaveRow" type="HBoxContainer" parent="Root/ConnFold/ConnInner"]
 layout_mode = 2
 theme_override_constants/separation = 6
@@ -251,7 +166,7 @@ text = "Test"
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-tooltip_text = "Ask the runtime for installed model ids and fill the Model field."
+tooltip_text = "Ask the runtime for installed model ids."
 text = "Models"
 
 [node name="SaveSettings" type="Button" parent="Root/ConnFold/ConnInner/SaveRow"]
@@ -260,69 +175,178 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "Save"
 
-[node name="CliFold" type="FoldableContainer" parent="Root"]
+[node name="AdvFold" type="FoldableContainer" parent="Root"]
 unique_name_in_owner = true
 layout_mode = 2
-title = "CLI sessions"
+title = "Model & extras"
 folded = true
 
-[node name="CliInner" type="VBoxContainer" parent="Root/CliFold"]
+[node name="AdvInner" type="VBoxContainer" parent="Root/AdvFold"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="CliStatus" type="Label" parent="Root/CliFold/CliInner"]
+[node name="AdvGrid" type="GridContainer" parent="Root/AdvFold/AdvInner"]
+layout_mode = 2
+columns = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 4
+
+[node name="CtxLabel" type="Label" parent="Root/AdvFold/AdvInner/AdvGrid"]
+layout_mode = 2
+text = "Context"
+
+[node name="CtxEdit" type="LineEdit" parent="Root/AdvFold/AdvInner/AdvGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "65536"
+tooltip_text = "Sent as options.num_ctx on Ollama /api/chat."
+
+[node name="KeepLabel" type="Label" parent="Root/AdvFold/AdvInner/AdvGrid"]
+layout_mode = 2
+text = "Keep alive"
+
+[node name="KeepEdit" type="LineEdit" parent="Root/AdvFold/AdvInner/AdvGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "-1"
+tooltip_text = "Sent as keep_alive. -1 keeps the model loaded."
+
+[node name="TempLabel" type="Label" parent="Root/AdvFold/AdvInner/AdvGrid"]
+layout_mode = 2
+text = "Temperature"
+
+[node name="TempEdit" type="LineEdit" parent="Root/AdvFold/AdvInner/AdvGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "0.2"
+tooltip_text = "Sent as options.temperature."
+
+[node name="MaxLabel" type="Label" parent="Root/AdvFold/AdvInner/AdvGrid"]
+layout_mode = 2
+text = "Max tokens"
+
+[node name="MaxEdit" type="LineEdit" parent="Root/AdvFold/AdvInner/AdvGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "4096"
+tooltip_text = "Sent as options.num_predict / max_tokens."
+
+[node name="ILabel" type="Label" parent="Root/AdvFold/AdvInner/AdvGrid"]
+layout_mode = 2
+text = "Image URL"
+
+[node name="ImageUrlEdit" type="LineEdit" parent="Root/AdvFold/AdvInner/AdvGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "optional /v1 images"
+
+[node name="PortLabel" type="Label" parent="Root/AdvFold/AdvInner/AdvGrid"]
+layout_mode = 2
+text = "MCP port"
+
+[node name="McpPortEdit" type="LineEdit" parent="Root/AdvFold/AdvInner/AdvGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "8765"
+
+[node name="FlagsRow" type="HFlowContainer" parent="Root/AdvFold/AdvInner"]
+layout_mode = 2
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 2
+
+[node name="PlanCheck" type="CheckBox" parent="Root/AdvFold/AdvInner/FlagsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Write tools wait until you approve a plan."
+text = "Plan"
+
+[node name="McpCheck" type="CheckBox" parent="Root/AdvFold/AdvInner/FlagsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "JSON-RPC on 127.0.0.1 only."
+text = "MCP"
+
+[node name="CompactCheck" type="CheckBox" parent="Root/AdvFold/AdvInner/FlagsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Local models get the core tool set only."
+text = "Compact"
+
+[node name="ThinkCheck" type="CheckBox" parent="Root/AdvFold/AdvInner/FlagsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Sent as think on Ollama /api/chat."
+text = "Think"
+
+[node name="CliStatus" type="Label" parent="Root/AdvFold/AdvInner"]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 3
-text = "Scan to detect Codex, Claude Code, or Gemini CLI sessions."
+text = "CLI: Scan for Codex, Claude Code, or Gemini sessions."
 
-[node name="CliRow" type="HFlowContainer" parent="Root/CliFold/CliInner"]
+[node name="CliRow" type="HFlowContainer" parent="Root/AdvFold/AdvInner"]
 layout_mode = 2
 theme_override_constants/h_separation = 6
 theme_override_constants/v_separation = 4
 
-[node name="ScanCli" type="Button" parent="Root/CliFold/CliInner/CliRow"]
+[node name="ScanCli" type="Button" parent="Root/AdvFold/AdvInner/CliRow"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Scan"
 
-[node name="LoginCodex" type="Button" parent="Root/CliFold/CliInner/CliRow"]
+[node name="LoginCodex" type="Button" parent="Root/AdvFold/AdvInner/CliRow"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Login Codex"
 
-[node name="LoginClaude" type="Button" parent="Root/CliFold/CliInner/CliRow"]
+[node name="LoginClaude" type="Button" parent="Root/AdvFold/AdvInner/CliRow"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Login Claude"
 
-[node name="LoginGemini" type="Button" parent="Root/CliFold/CliInner/CliRow"]
+[node name="LoginGemini" type="Button" parent="Root/AdvFold/AdvInner/CliRow"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Login Gemini"
 
-[node name="CliUseRow" type="HFlowContainer" parent="Root/CliFold/CliInner"]
-layout_mode = 2
-theme_override_constants/h_separation = 6
-theme_override_constants/v_separation = 4
-
-[node name="UseCodex" type="Button" parent="Root/CliFold/CliInner/CliUseRow"]
+[node name="UseCodex" type="Button" parent="Root/AdvFold/AdvInner/CliRow"]
 unique_name_in_owner = true
 layout_mode = 2
 disabled = true
 text = "Use Codex"
 
-[node name="UseClaude" type="Button" parent="Root/CliFold/CliInner/CliUseRow"]
+[node name="UseClaude" type="Button" parent="Root/AdvFold/AdvInner/CliRow"]
 unique_name_in_owner = true
 layout_mode = 2
 disabled = true
 text = "Use Claude"
 
-[node name="UseGemini" type="Button" parent="Root/CliFold/CliInner/CliUseRow"]
+[node name="UseGemini" type="Button" parent="Root/AdvFold/AdvInner/CliRow"]
 unique_name_in_owner = true
 layout_mode = 2
 disabled = true
 text = "Use Gemini"
+
+[node name="ChatFold" type="FoldableContainer" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+title = "Chats"
+folded = true
+
+[node name="ChatInner" type="VBoxContainer" parent="Root/ChatFold"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="ChatSearch" type="LineEdit" parent="Root/ChatFold/ChatInner"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Search chats"
+
+[node name="ChatList" type="ItemList" parent="Root/ChatFold/ChatInner"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
+max_text_lines = 1
 
 [node name="Transcript" type="RichTextLabel" parent="Root"]
 unique_name_in_owner = true
@@ -332,6 +356,7 @@ bbcode_enabled = true
 scroll_following = true
 selection_enabled = true
 fit_content = false
+focus_mode = 2
 
 [node name="TodoBox" type="VBoxContainer" parent="Root"]
 unique_name_in_owner = true
@@ -346,10 +371,11 @@ theme_override_font_sizes/font_size = 12
 
 [node name="TodoList" type="RichTextLabel" parent="Root/TodoBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 36)
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
+scroll_active = true
 
 [node name="PlanBox" type="VBoxContainer" parent="Root"]
 unique_name_in_owner = true
@@ -363,7 +389,7 @@ text = "Plan"
 
 [node name="PlanText" type="RichTextLabel" parent="Root/PlanBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 96)
+custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 bbcode_enabled = true
 fit_content = true
@@ -391,15 +417,15 @@ theme_override_constants/separation = 4
 
 [node name="Composer" type="TextEdit" parent="Root"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 72)
+custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
-placeholder_text = "Describe the change. Ctrl+Enter sends. @res://path attaches a file."
+placeholder_text = "Describe the change. Ctrl+Enter sends. @file or drop a path."
 wrap_mode = 1
 scroll_fit_content_height = false
 
 [node name="Footer" type="HBoxContainer" parent="Root"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="Status" type="Label" parent="Root/Footer"]
 unique_name_in_owner = true
@@ -409,7 +435,15 @@ clip_text = true
 text = "Ready"
 autowrap_mode = 3
 
+[node name="StopButton" type="Button" parent="Root/Footer"]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+tooltip_text = "Stop the current turn."
+text = "Stop"
+
 [node name="SendButton" type="Button" parent="Root/Footer"]
 unique_name_in_owner = true
 layout_mode = 2
+tooltip_text = "Ctrl+Enter"
 text = "Send"
