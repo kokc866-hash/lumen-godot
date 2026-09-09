@@ -7,7 +7,7 @@ extends RefCounted
 const LAYOUT_ALL := 7
 
 
-static func ei() -> EditorInterface:
+static func ei():
 	return EditorInterface
 
 
