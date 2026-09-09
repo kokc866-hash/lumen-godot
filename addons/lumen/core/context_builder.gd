@@ -22,6 +22,8 @@ func snapshot() -> Dictionary:
 		"selected_nodes": _selected_paths(ei, root),
 		"open_scripts": _open_scripts(ei),
 		"filesystem_ready": fs.is_scanning() == false if fs else true,
+		"playing": ei.is_playing_scene(),
+		"playing_scene": ei.get_playing_scene(),
 	}
 
 
@@ -61,13 +63,14 @@ func system_preamble(settings: LumenSettings, skills: LumenSkillLoader) -> Strin
 		"Scene: get_scene_tree accepts name/type/group/depth/limit. 3D: create_primitive_mesh, add_csg, instance_3d after enable_tools.",
 		"Playtest: playtest_batch then get_playtest_report. Errors: get_errors includes the live debugger capture.",
 		"Plan mode: write a plan and wait. Do not call write tools until the user approves.",
-		"Godot %s. Project %s. Edited scene %s (%s). Selected: %s. Open scripts: %s" % [
+		"Godot %s. Project %s. Edited scene %s (%s). Selected: %s. Open scripts: %s. Playing: %s" % [
 			str((ctx.get("godot", {}) as Dictionary).get("string", "4.x")) if typeof(ctx.get("godot", {})) == TYPE_DICTIONARY else "4.x",
 			str(ctx.get("project_name", "")),
 			str(ctx.get("edited_scene", "")),
 			str(ctx.get("edited_root", "")),
 			", ".join(PackedStringArray(ctx.get("selected_nodes", []))),
 			", ".join(PackedStringArray(ctx.get("open_scripts", []))),
+			str(ctx.get("playing_scene", "")) if bool(ctx.get("playing", false)) else "no",
 		],
 		"Available skills (load_skill before following them):\n%s" % skills.describe_for_prompt(),
 	])
