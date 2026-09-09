@@ -54,7 +54,7 @@ func get_scene_tree(args: Dictionary) -> Dictionary:
 	}
 	var max_depth := clampi(int(args.get("depth", 12)), 1, 32)
 	var limit := clampi(int(args.get("limit", 400)), 1, 800)
-	var filtered := filt["name"] != "" or filt["type"] != "" or filt["group"] != ""
+	var filtered: bool = str(filt.get("name", "")) != "" or str(filt.get("type", "")) != "" or str(filt.get("group", "")) != ""
 	if filtered:
 		var matches: Array = []
 		_collect(start, root, filt, 0, max_depth, matches, limit)
