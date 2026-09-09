@@ -4,19 +4,9 @@ extends RefCounted
 
 signal changed
 
-## Protocol is what the wire format accepts. Auth (key vs CLI session) is separate.
-## ollama     POST /api/chat — options.num_ctx (server default 2048), keep_alive, think
-## openai     POST /v1/chat/completions — no num_ctx. LM Studio context is load-time only.
-## anthropic  POST /v1/messages — max_tokens required. thinking is an object, not a bool.
-## gemini     vendor CLI / generateContent
-
 const KIND_LOCAL := "local"
 const KIND_API := "api"
 const KIND_SUB := "subscription"
-const PROTO_OLLAMA := "ollama"
-const PROTO_OPENAI := "openai"
-const PROTO_ANTHROPIC := "anthropic"
-const PROTO_GEMINI := "gemini"
 
 const PROVIDER_KIND := {
 	"ollama": KIND_LOCAL,
@@ -32,31 +22,31 @@ const PROVIDER_KIND := {
 
 const KIND_DEFAULTS := {
 	KIND_LOCAL: {
-		"num_ctx": 65536,
+		"num_ctx": 131072,
 		"keep_alive": "-1",
 		"think": false,
 		"compact_tools": true,
 		"temperature": 0.2,
-		"max_tokens": 4096,
+		"max_tokens": 8192,
 		"tool_result_chars": 8000,
 	},
 	KIND_API: {
-		"num_ctx": 65536,
-		"keep_alive": "-1",
+		"num_ctx": 0,
+		"keep_alive": "",
 		"think": false,
 		"compact_tools": false,
 		"temperature": 0.2,
-		"max_tokens": 8192,
-		"tool_result_chars": 12000,
+		"max_tokens": 32768,
+		"tool_result_chars": 16000,
 	},
 	KIND_SUB: {
-		"num_ctx": 65536,
-		"keep_alive": "-1",
+		"num_ctx": 0,
+		"keep_alive": "",
 		"think": false,
 		"compact_tools": false,
 		"temperature": 0.2,
-		"max_tokens": 8192,
-		"tool_result_chars": 12000,
+		"max_tokens": 32768,
+		"tool_result_chars": 16000,
 	},
 }
 
@@ -65,8 +55,8 @@ const DEFAULTS := {
 	"base_url": "",
 	"model": "",
 	"temperature": 0.2,
-	"max_tokens": 4096,
-	"num_ctx": 65536,
+	"max_tokens": 32768,
+	"num_ctx": 131072,
 	"tool_result_chars": 8000,
 	"keep_alive": "-1",
 	"think": false,
@@ -105,6 +95,7 @@ func reload() -> void:
 	secrets = LumenJson.read_file(LumenPaths.USER_SECRETS, {})
 	if typeof(secrets) != TYPE_DICTIONARY:
 		secrets = {}
+	_migrate_stale_limits()
 
 
 func get_value(key: String, fallback: Variant = null) -> Variant:
@@ -169,12 +160,16 @@ func kind(id: String = "") -> String:
 
 func protocol(id: String = "") -> String:
 	var pid := id if id != "" else provider_id()
-	if pid == "ollama" or _url_is_ollama():
-		return "ollama"
-	if pid == "anthropic" or pid == "claude_cli":
+	if pid == "codex_cli":
+		return "codex"
+	if pid == "claude_cli":
 		return "anthropic"
 	if pid == "gemini_cli":
 		return "gemini"
+	if pid == "ollama" or _url_is_ollama():
+		return "ollama"
+	if pid == "anthropic":
+		return "anthropic"
 	return "openai"
 
 
@@ -194,15 +189,15 @@ func capabilities(id: String = "") -> Dictionary:
 		"temperature": true,
 		"max_tokens": true,
 		"warmup": not sub,
-		"list_models": not sub,
+		"list_models": true,
 		"cli": sub,
 	}
 
 
 func context_budget() -> int:
 	if protocol() == "ollama":
-		return maxi(int(get_value("num_ctx", 65536)), 8192)
-	return 128000
+		return maxi(int(get_value("num_ctx", 131072)), 8192)
+	return maxi(int(get_value("max_tokens", 32768)) * 4, 128000)
 
 
 func switch_provider(new_id: String) -> void:
@@ -221,12 +216,13 @@ func store_profile(id: String = "") -> void:
 	var pid := id if id != "" else provider_id()
 	if pid == "":
 		return
-	var profiles: Dictionary = get_value("profiles", {})
-	if typeof(profiles) != TYPE_DICTIONARY:
-		profiles = {}
+	var raw: Variant = project.get("profiles", {})
+	var profiles: Dictionary = {}
+	if typeof(raw) == TYPE_DICTIONARY:
+		profiles = (raw as Dictionary).duplicate(true)
 	var row := {}
 	for key in PROFILE_KEYS:
-		row[key] = get_value(key, KIND_DEFAULTS.get(kind(pid), {}).get(key))
+		row[key] = get_value(key)
 	profiles[pid] = row
 	project["profiles"] = profiles
 
@@ -266,21 +262,52 @@ func model_hints(model_id: String, k: String = "") -> Dictionary:
 	if k == "":
 		k = kind()
 	if k == KIND_LOCAL:
-		if "70b" in m or "72b" in m or "32b" in m or "27b" in m or "30b" in m:
+		out["keep_alive"] = "-1"
+		out["compact_tools"] = true
+		out["max_tokens"] = 8192
+		out["num_ctx"] = 131072
+		if "qwen3.8" in m or "qwen3.6" in m or "qwen3.5" in m or "256k" in m:
+			out["num_ctx"] = 262144
+			out["max_tokens"] = 16384
+		elif "70b" in m or "72b" in m or "32b" in m or "27b" in m or "30b" in m:
+			out["num_ctx"] = 131072
+			out["max_tokens"] = 8192
+		elif "8b" in m or "7b" in m or "4b" in m or "3b" in m:
 			out["num_ctx"] = 65536
-			out["keep_alive"] = "-1"
-			out["compact_tools"] = true
 			out["max_tokens"] = 4096
-		if "qwen" in m or "coder" in m:
-			out["compact_tools"] = true
-			out["temperature"] = 0.2
-		if "8b" in m or "7b" in m or "3b" in m or "4b" in m:
-			out["num_ctx"] = mini(int(get_value("num_ctx", 65536)), 32768)
-			out["compact_tools"] = true
 	else:
 		out["compact_tools"] = false
-		out["max_tokens"] = 8192
+		out["max_tokens"] = 32768
 	return out
+
+
+func _migrate_stale_limits() -> void:
+	var k := kind()
+	if k == KIND_API or k == KIND_SUB:
+		var mx := int(get_value("max_tokens", 0))
+		if mx == 4096 or mx == 8192:
+			project["max_tokens"] = 32768
+		project["compact_tools"] = false
+	elif k == KIND_LOCAL:
+		if int(get_value("num_ctx", 0)) == 65536:
+			project["num_ctx"] = 131072
+		if int(get_value("max_tokens", 0)) == 4096:
+			project["max_tokens"] = 8192
+
+
+func catalog(id: String = "") -> PackedStringArray:
+	var pid := id if id != "" else provider_id()
+	match pid:
+		"codex_cli", "openai":
+			return PackedStringArray(["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex", "gpt-4.1"])
+		"claude_cli", "anthropic":
+			return PackedStringArray(["claude-sonnet-5", "claude-opus-5", "claude-sonnet-4-5", "claude-haiku-4-5"])
+		"gemini_cli":
+			return PackedStringArray(["gemini-2.5-pro", "gemini-2.5-flash", "gemini-3.1-pro"])
+		"grok":
+			return PackedStringArray(["grok-4.5", "grok-4"])
+		_:
+			return PackedStringArray()
 
 
 func _url_is_ollama() -> bool:
