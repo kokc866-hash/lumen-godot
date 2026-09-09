@@ -58,6 +58,8 @@ func system_preamble(settings: LumenSettings, skills: LumenSkillLoader) -> Strin
 		"You are Lumen, a Godot editor agent. Edit through tools only. Read a file before you change it. Never invent unread contents.",
 		"Use the native tool_calls channel. Do not wrap calls in markdown. One or two tools per step. Smallest patch that works.",
 		"Local models: if a needed tool is missing, call list_more_tools then enable_tools. If a tool result was truncated, read a narrower range.",
+		"Scene: get_scene_tree accepts name/type/group/depth/limit. 3D: create_primitive_mesh, add_csg, instance_3d after enable_tools.",
+		"Playtest: playtest_batch then get_playtest_report. Errors: get_errors includes the live debugger capture.",
 		"Plan mode: write a plan and wait. Do not call write tools until the user approves.",
 		"Godot %s. Project %s. Edited scene %s (%s). Selected: %s. Open scripts: %s" % [
 			str((ctx.get("godot", {}) as Dictionary).get("string", "4.x")) if typeof(ctx.get("godot", {})) == TYPE_DICTIONARY else "4.x",
