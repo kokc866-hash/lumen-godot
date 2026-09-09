@@ -22,7 +22,7 @@ func attach(host: Node, p_log: LumenLogger) -> void:
 	http.request_completed.connect(_on_completed)
 
 
-func chat(api_key: String, model: String, system: String, messages: Array, tools: Array, max_tokens: int, temperature: float, use_oauth: bool = false) -> void:
+func chat(api_key: String, model: String, system: String, messages: Array, tools: Array, max_tokens: int, temperature: float, use_oauth: bool = false, think: bool = false) -> void:
 	if _busy:
 		failed.emit("Provider is already running a request.")
 		return
@@ -30,13 +30,19 @@ func chat(api_key: String, model: String, system: String, messages: Array, tools
 		failed.emit("Anthropic credential is empty. Use an API key or a Claude Code CLI session.")
 		return
 	_busy = true
+	var out_tokens := maxi(max_tokens, 1024)
 	var payload := {
 		"model": model if model != "" else "claude-sonnet-4-5",
-		"max_tokens": max_tokens,
+		"max_tokens": out_tokens,
 		"temperature": temperature,
 		"system": system,
 		"messages": _to_anthropic_messages(messages),
 	}
+	if think:
+		var budget := mini(4096, out_tokens - 1024)
+		if budget >= 1024:
+			payload["thinking"] = {"type": "enabled", "budget_tokens": budget}
+			payload["temperature"] = 1.0
 	if not tools.is_empty():
 		payload["tools"] = _to_anthropic_tools(tools)
 	var headers := PackedStringArray([
