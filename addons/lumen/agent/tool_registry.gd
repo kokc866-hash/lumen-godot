@@ -79,7 +79,7 @@ func get_tool(name: String) -> LumenToolSpec:
 
 
 const CORE := [
-	"get_project_info", "get_scene_tree", "read_file", "list_dir",
+	"get_project_info", "get_scene_tree", "find_nodes_in_group", "read_file", "list_dir",
 	"search_project", "get_errors", "write_file", "edit_file",
 	"create_node", "set_node_property", "delete_node",
 	"attach_script", "open_scene", "save_scene", "load_skill",
