@@ -226,9 +226,13 @@ func _to_openai(payload: Dictionary, local: bool) -> Dictionary:
 		"model": payload.get("model", ""),
 		"messages": payload.get("messages", []),
 		"temperature": payload.get("temperature", 0.2),
-		"max_tokens": payload.get("max_tokens", 4096),
 		"stream": false,
 	}
+	var cap := int(payload.get("max_tokens", 4096))
+	out["max_tokens"] = cap
+	# Official Chat Completions: max_tokens is deprecated; reasoning models want max_completion_tokens.
+	if not local:
+		out["max_completion_tokens"] = cap
 	if payload.has("tools"):
 		out["tools"] = payload.get("tools")
 		if local:

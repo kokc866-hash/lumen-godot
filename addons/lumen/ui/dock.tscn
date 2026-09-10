@@ -38,13 +38,16 @@ theme_override_font_sizes/font_size = 14
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+mouse_default_cursor_shape = 2
+tooltip_text = "Open Connection / change model"
 
 [node name="ModelChip" type="Label" parent="Root/Header/ModelChipWrap"]
 unique_name_in_owner = true
 layout_mode = 2
 clip_text = true
 text = ""
-tooltip_text = "Current model"
+tooltip_text = "Open Connection / change model"
+mouse_filter = 0
 theme_override_font_sizes/font_size = 11
 
 [node name="ConnChipWrap" type="PanelContainer" parent="Root/Header"]
@@ -60,15 +63,15 @@ theme_override_font_sizes/font_size = 11
 [node name="NewButton" type="Button" parent="Root/Header"]
 unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "Archive this chat and start a new one."
-text = "New"
+tooltip_text = "New chat"
+text = "+"
 flat = true
 
 [node name="UndoButton" type="Button" parent="Root/Header"]
 unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "Restore files and the edited scene from the last agent turn."
-text = "Undo"
+tooltip_text = "Undo last agent turn"
+text = "↶"
 flat = true
 
 [node name="HeadSep" type="HSeparator" parent="Root"]
@@ -212,7 +215,7 @@ text = "Save"
 [node name="AdvFold" type="FoldableContainer" parent="Root"]
 unique_name_in_owner = true
 layout_mode = 2
-title = "Modell"
+title = "Advanced"
 folded = true
 
 [node name="AdvInner" type="VBoxContainer" parent="Root/AdvFold"]
@@ -415,7 +418,9 @@ placeholder_text = "Meshy API key"
 [node name="Transcript" type="RichTextLabel" parent="Root"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 160)
 bbcode_enabled = true
 scroll_following = true
 selection_enabled = true
@@ -479,13 +484,28 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="Composer" type="TextEdit" parent="Root"]
+[node name="ComposerRow" type="HBoxContainer" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Composer" type="TextEdit" parent="Root/ComposerRow"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
-placeholder_text = "Describe the change. Ctrl+Enter sends. @file or drop a path."
+size_flags_horizontal = 3
+placeholder_text = "Describe the change. Enter sends · Shift+Enter new line. @file or drop a path."
+tooltip_text = "Enter sends. Shift+Enter inserts a new line. Ctrl+Enter also sends."
 wrap_mode = 1
 scroll_fit_content_height = false
+
+[node name="SendButton" type="Button" parent="Root/ComposerRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 0
+flat = true
+tooltip_text = "Enter sends · Ctrl+Enter also sends"
+text = "↑"
 
 [node name="Footer" type="HBoxContainer" parent="Root"]
 layout_mode = 2
@@ -505,9 +525,3 @@ layout_mode = 2
 disabled = true
 tooltip_text = "Stop the current turn."
 text = "Stop"
-
-[node name="SendButton" type="Button" parent="Root/Footer"]
-unique_name_in_owner = true
-layout_mode = 2
-tooltip_text = "Ctrl+Enter"
-text = "Send"

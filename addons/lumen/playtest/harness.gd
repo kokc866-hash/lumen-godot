@@ -101,6 +101,19 @@ func _dispatch(entry: Dictionary, pressed: bool) -> void:
 		"pressed": pressed,
 	})
 	var kind := str(entry.get("type", "key"))
+	if kind == "action":
+		var action := str(entry.get("action", entry.get("key", "")))
+		if action != "":
+			if pressed:
+				Input.action_press(action)
+			else:
+				Input.action_release(action)
+		return
+	if kind == "mouse_motion":
+		var evm := InputEventMouseMotion.new()
+		evm.position = Vector2(float(entry.get("x", 0)), float(entry.get("y", 0)))
+		Input.parse_input_event(evm)
+		return
 	if kind == "mouse":
 		var ev := InputEventMouseButton.new()
 		ev.button_index = int(entry.get("button", MOUSE_BUTTON_LEFT))

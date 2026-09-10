@@ -77,11 +77,15 @@ func commit_settings() -> void:
 func set_busy(value: bool) -> void:
 	_busy = value
 	send_button.disabled = value
-	send_button.text = "Send"
+	# Keep ghost icon from dock.tscn (Slice B); never reset to "Send".
 	composer.editable = true
 	%NewButton.disabled = value
 	if has_node("%StopButton"):
 		%StopButton.disabled = not value
+	if value:
+		set_status("Typing…")
+	elif status_label and status_label.text == "Typing…":
+		set_status("Ready")
 
 
 func _ready() -> void:
@@ -127,6 +131,18 @@ func _ready() -> void:
 		%ThinkCheck.toggled.connect(func(_on): _save_fields(false))
 	composer.gui_input.connect(_on_composer_input)
 	composer.text_changed.connect(_on_composer_text)
+	if has_node("%ModelChipWrap"):
+		%ModelChipWrap.gui_input.connect(_on_model_chip_gui)
+	if has_node("%ModelChip"):
+		%ModelChip.gui_input.connect(_on_model_chip_gui)
+		%ModelChip.mouse_filter = Control.MOUSE_FILTER_STOP
+	if has_node("%ConnChipWrap"):
+		%ConnChipWrap.gui_input.connect(_on_model_chip_gui)
+		%ConnChipWrap.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	if has_node("%ConnChip"):
+		%ConnChip.gui_input.connect(_on_model_chip_gui)
+		%ConnChip.mouse_filter = Control.MOUSE_FILTER_STOP
+		%ConnChip.tooltip_text = "Open Connection"
 	_mention = PopupMenu.new()
 	add_child(_mention)
 	_mention.id_pressed.connect(_on_mention_pick)
@@ -139,7 +155,10 @@ func _ready() -> void:
 	if has_node("%ChatList"):
 		%ChatList.item_selected.connect(_on_chat_selected)
 		%ChatList.gui_input.connect(_on_chat_list_input)
-	append_system("Choose a provider in Connection, then describe a change. Ctrl+Enter sends.")
+	_show_empty_state()
+	_layout_transcript_first()
+	_bind_fold_accordion()
+	_collapse_chrome_folds()
 	_apply_chrome()
 
 
@@ -191,6 +210,7 @@ func _apply_chrome() -> void:
 	if transcript:
 		transcript.add_theme_stylebox_override("normal", _pill(inset, 8, 8, 6))
 		transcript.add_theme_color_override("default_color", font)
+		transcript.add_theme_font_size_override("normal_font_size", 13)
 	if composer:
 		composer.add_theme_stylebox_override("normal", _pill(inset, 8, 6, 6))
 		composer.add_theme_stylebox_override("focus", _pill(inset.lerp(accent, 0.08), 8, 6, 6))
@@ -200,20 +220,31 @@ func _apply_chrome() -> void:
 		status_label.add_theme_color_override("font_color", muted)
 		status_label.add_theme_font_size_override("font_size", 11)
 	if send_button:
-		var send_sb := _pill(accent.darkened(0.25), 12, 4, 6)
-		send_button.add_theme_stylebox_override("normal", send_sb)
-		send_button.add_theme_stylebox_override("hover", _pill(accent.darkened(0.12), 12, 4, 6))
-		send_button.add_theme_stylebox_override("pressed", _pill(accent.darkened(0.35), 12, 4, 6))
-		send_button.add_theme_stylebox_override("disabled", _pill(chip_bg, 12, 4, 6))
-		send_button.add_theme_color_override("font_color", Color.WHITE)
+		# Ghost/secondary — Enter is primary send.
+		send_button.flat = true
+		send_button.tooltip_text = "Enter sends · Ctrl+Enter also sends"
+		send_button.add_theme_stylebox_override("normal", _pill(Color(0, 0, 0, 0), 10, 8, 6))
+		send_button.add_theme_stylebox_override("hover", _pill(chip_bg, 10, 8, 6))
+		send_button.add_theme_stylebox_override("pressed", _pill(chip_bg.lerp(accent, 0.25), 10, 8, 6))
+		send_button.add_theme_stylebox_override("disabled", _pill(Color(0, 0, 0, 0), 10, 8, 6))
+		send_button.add_theme_color_override("font_color", muted)
+		send_button.add_theme_color_override("font_hover_color", accent)
+		send_button.add_theme_color_override("font_disabled_color", Color(muted.r, muted.g, muted.b, 0.35))
+		send_button.add_theme_font_size_override("font_size", 18)
 	if has_node("%StopButton"):
 		%StopButton.add_theme_stylebox_override("normal", _pill(chip_bg, 10, 4, 6))
 		%StopButton.add_theme_stylebox_override("hover", _pill(Color(0.55, 0.22, 0.2, 0.9), 10, 4, 6))
 		%StopButton.add_theme_stylebox_override("disabled", _pill(Color(chip_bg.r, chip_bg.g, chip_bg.b, 0.35), 10, 4, 6))
 	if has_node("%NewButton"):
-		%NewButton.add_theme_font_size_override("font_size", 12)
+		%NewButton.text = "+"
+		%NewButton.flat = true
+		%NewButton.tooltip_text = "New chat"
+		%NewButton.add_theme_font_size_override("font_size", 16)
 	if has_node("%UndoButton"):
-		%UndoButton.add_theme_font_size_override("font_size", 12)
+		%UndoButton.text = "↶"
+		%UndoButton.flat = true
+		%UndoButton.tooltip_text = "Undo last agent turn"
+		%UndoButton.add_theme_font_size_override("font_size", 14)
 	if has_node("%ChatList"):
 		%ChatList.add_theme_color_override("font_color", font)
 		%ChatList.add_theme_color_override("font_hovered_color", accent)
@@ -269,8 +300,9 @@ func _load_fields() -> void:
 		%ThinkCheck.set_pressed_no_signal(bool(settings.get_value("think", false)))
 	_apply_provider_visibility()
 	_refresh_conn_chip()
+	# C1: folds stay collapsed; ModelChip / explicit actions open on demand.
 	if has_node("%ConnFold"):
-		%ConnFold.folded = settings.provider_id() != ""
+		%ConnFold.folded = true
 
 
 func _load_binding_fields() -> void:
@@ -394,16 +426,83 @@ func _refresh_conn_chip() -> void:
 			label = str(row["label"])
 			break
 	%ConnChip.text = label
+	%ConnChip.tooltip_text = ("Open Connection — %s" % label) if label != "" else "Open Connection"
 	if has_node("%ConnChipWrap"):
 		%ConnChipWrap.visible = label != ""
+		%ConnChipWrap.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	if has_node("%ConnFold"):
 		%ConnFold.title = "Connection" if label == "" else "Connection  ·  %s" % label
 	if has_node("%ModelChip"):
 		var model := settings.model() if settings else (model_edit.text.strip_edges() if model_edit else "")
 		%ModelChip.text = model
-		%ModelChip.tooltip_text = model if model != "" else "No model set"
+		%ModelChip.tooltip_text = ("Open Connection — %s" % model) if model != "" else "Open Connection / set model"
 		if has_node("%ModelChipWrap"):
 			%ModelChipWrap.visible = model != ""
+
+
+
+func _layout_transcript_first() -> void:
+	## Header/Context → Transcript (+ transient boxes) → Composer/Footer → Folds.
+	var root := get_node_or_null("Root") as VBoxContainer
+	if root == null or transcript == null:
+		return
+	var order: Array[Node] = []
+	for path in ["Header", "HeadSep", "ContextBar"]:
+		var n := root.get_node_or_null(path)
+		if n:
+			order.append(n)
+	order.append(transcript)
+	for path in ["TodoBox", "PlanBox", "ToolBox", "ComposerRow", "Footer", "ChatFold", "ConnFold", "AdvFold", "AssetFold"]:
+		var n2 := root.get_node_or_null(path)
+		if n2:
+			order.append(n2)
+	for i in order.size():
+		root.move_child(order[i], i)
+	transcript.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	transcript.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	transcript.custom_minimum_size = Vector2(0, 160)
+
+
+func _collapse_chrome_folds() -> void:
+	for path in ["%ChatFold", "%ConnFold", "%AdvFold", "%AssetFold"]:
+		if has_node(path):
+			get_node(path).folded = true
+
+
+func _bind_fold_accordion() -> void:
+	for path in ["%ChatFold", "%ConnFold", "%AdvFold", "%AssetFold"]:
+		if not has_node(path):
+			continue
+		var fold: FoldableContainer = get_node(path)
+		if not fold.folding_changed.is_connected(_on_chrome_fold_changed):
+			fold.folding_changed.connect(_on_chrome_fold_changed.bind(fold))
+
+
+func _on_chrome_fold_changed(is_folded: bool, source: FoldableContainer) -> void:
+	## Max one chrome fold open (Transcript stays the focus surface).
+	if is_folded:
+		return
+	for path in ["%ChatFold", "%ConnFold", "%AdvFold", "%AssetFold"]:
+		if not has_node(path):
+			continue
+		var fold: FoldableContainer = get_node(path)
+		if fold != source and not fold.folded:
+			fold.folded = true
+
+
+func _on_model_chip_gui(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_open_connection_fold()
+		accept_event()
+
+
+func _open_connection_fold() -> void:
+	if has_node("%ConnFold"):
+		%ConnFold.folded = false
+	if has_node("%ModelOption") and model_option:
+		model_option.grab_focus()
+	elif model_edit and model_edit.visible:
+		model_edit.grab_focus()
 
 
 func _apply_provider_visibility() -> void:
@@ -431,15 +530,8 @@ func _apply_provider_visibility() -> void:
 	if has_node("%TestConnection"):
 		%TestConnection.visible = bool(cap.get("warmup", true))
 	if has_node("%AdvFold"):
-		match kind:
-			"local":
-				%AdvFold.title = "Lokal"
-			"subscription":
-				%AdvFold.title = "Abo"
-			"api":
-				%AdvFold.title = "API"
-			_:
-				%AdvFold.title = "Modell"
+		# C2: one settings narrative — ConnFold = connection/model; Adv = Advanced only.
+		%AdvFold.title = "Advanced"
 	if kind == "subscription":
 		base_url_edit.placeholder_text = "uses CLI session"
 		key_edit.placeholder_text = "not used"
@@ -624,13 +716,36 @@ func _on_send() -> void:
 	append_user(text)
 	composer.text = ""
 	send_pressed.emit(text, mentions)
+	if composer:
+		composer.grab_focus()
 
 
 func _on_composer_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_ENTER and event.ctrl_pressed:
-			_on_send()
-			accept_event()
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	var key: int = event.keycode
+	var is_enter := key == KEY_ENTER or key == KEY_KP_ENTER
+	if not is_enter:
+		return
+	# Mention-Popup: Enter wählt, sendet nie.
+	if _mention != null and _mention.visible:
+		if event.shift_pressed:
+			return
+		var idx := _mention.get_focused_item()
+		if idx < 0 and _mention.get_item_count() > 0:
+			idx = 0
+		if idx >= 0:
+			_on_mention_pick(idx)
+		accept_event()
+		return
+	# Shift+Enter → Zeilenumbruch (TextEdit default).
+	if event.shift_pressed:
+		return
+	# Enter / KP_Enter / Ctrl+Enter-Alias → senden.
+	_on_send()
+	if composer:
+		composer.grab_focus()
+	accept_event()
 
 
 func set_status(text: String) -> void:
@@ -644,18 +759,38 @@ func set_status(text: String) -> void:
 		status_label.modulate = Color(0.82, 0.86, 0.92)
 
 
+
+func _show_empty_state() -> void:
+	transcript.clear()
+	var has_provider := settings != null and settings.provider_id() != ""
+	if has_provider:
+		append_system("Ready — describe a change. Enter sends · Shift+Enter new line.")
+	else:
+		append_system("No connection yet — click the model chip to open Connection.")
+
+
 func append_system(text: String) -> void:
-	transcript.append_text("[color=#8b909a]%s[/color]\n\n" % _esc(text))
+	# Meta line — not a bubble.
+	transcript.append_text("[color=#6b7280][font_size=11]%s[/font_size][/color]\n" % _esc(text))
 
 
 func append_user(text: String) -> void:
-	transcript.append_text("[b]You[/b]\n%s\n\n" % _esc(text))
+	end_stream()
+	# User bubble: right / muted role.
+	transcript.append_text(
+		"[right][color=#8b909a][font_size=11]You[/font_size][/color]\n[font_size=13]%s[/font_size][/right]\n"
+		% _esc(text)
+	)
 
 
 func append_assistant(text: String) -> void:
 	end_stream()
 	var accent := _accent_hex()
-	transcript.append_text("[b][color=%s]Lumen[/color][/b]\n%s\n\n" % [accent, _esc(text)])
+	# Assistant: left / accent role + body.
+	transcript.append_text(
+		"[color=%s][font_size=11]Lumen[/font_size][/color]\n[font_size=13]%s[/font_size]\n"
+		% [accent, _esc(text)]
+	)
 
 
 func append_stream(text: String) -> void:
@@ -663,14 +798,14 @@ func append_stream(text: String) -> void:
 		return
 	if not _stream_open:
 		var accent := _accent_hex()
-		transcript.append_text("[b][color=%s]Lumen[/color][/b]\n" % accent)
+		transcript.append_text("[color=%s][font_size=11]Lumen[/font_size][/color]\n[font_size=13]" % accent)
 		_stream_open = true
 	transcript.append_text(_esc(text))
 
 
 func end_stream() -> void:
 	if _stream_open:
-		transcript.append_text("\n\n")
+		transcript.append_text("[/font_size]\n")
 		_stream_open = false
 
 
@@ -809,7 +944,7 @@ func restore_messages(messages: Array) -> void:
 func reset_transcript() -> void:
 	_active_chat = ""
 	transcript.clear()
-	append_system("New chat.")
+	_show_empty_state()
 	refresh_chats(%ChatSearch.text if has_node("%ChatSearch") else "")
 
 
@@ -825,8 +960,7 @@ func refresh_cli_status() -> void:
 	_set_cli_button(%UseCodex, s.get("codex", {}), true)
 	_set_cli_button(%UseClaude, s.get("claude", {}), true)
 	_set_cli_button(%UseGemini, s.get("gemini", {}), true)
-	if has_node("%AdvFold") and (bool(s.get("codex", {}).get("session", false)) or bool(s.get("claude", {}).get("session", false)) or bool(s.get("gemini", {}).get("session", false))):
-		%AdvFold.folded = false
+	# C1: do not auto-expand AdvFold — Scan updates status only.
 
 
 func _set_cli_button(btn: Button, row: Variant, use_session: bool) -> void:

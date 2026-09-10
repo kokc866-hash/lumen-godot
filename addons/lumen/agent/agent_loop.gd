@@ -11,7 +11,8 @@ signal turn_done(message: String)
 signal turn_failed(message: String)
 signal plan_ready(plan: Dictionary)
 
-const MAX_STEPS := 24
+const MAX_STEPS_LOCAL := 16
+const MAX_STEPS_CLOUD := 32
 const WRITE_TOOLS := [
 	"write_file", "edit_file", "delete_file", "move_path",
 	"create_node", "set_node_property", "delete_node", "reparent_node",
@@ -20,6 +21,9 @@ const WRITE_TOOLS := [
 	"duplicate_node", "connect_signal", "disconnect_signal", "add_to_group",
 	"play_animation", "write_shader", "create_csharp_script", "import_asset",
 	"mcp_call", "create_primitive_mesh", "set_mesh_material", "add_csg", "instance_3d",
+	"run_scene", "stop_scene", "playtest_batch",
+	"playtest_input", "run_gut_tests", "attach_csharp", "set_animation_tree_param",
+	"generate_sprite", "generate_3d_model", "generate_3d_from_image", "poll_3d_task",
 ]
 
 var plugin: EditorPlugin
@@ -44,6 +48,9 @@ var _approvals: Dictionary = {}
 var _always: Dictionary = {}
 var _continued_length := false
 var _streamed := ""
+var _queue: Array = []
+var chat_id := ""
+var _retried := false
 
 
 func setup(
@@ -99,6 +106,9 @@ func reset_chat() -> void:
 	plan.clear()
 	_pending_calls.clear()
 	_approvals.clear()
+	_queue.clear()
+	chat_id = ""
+	_retried = false
 	if registry:
 		registry.enabled_extra.clear()
 	_save_persisted()
@@ -106,21 +116,19 @@ func reset_chat() -> void:
 
 func submit_user(text: String, attachments: Array = []) -> void:
 	if running:
-		_fail("Agent is already running.")
+		_queue.append({"text": text, "attachments": attachments})
+		status.emit("Queued (%d)" % _queue.size())
 		return
 	var payload := text
 	if not attachments.is_empty():
 		payload += "\n\nAttached paths:\n"
 		for path in attachments:
 			payload += "- %s\n" % path
-	if messages.is_empty():
-		messages.append({
-			"role": "system",
-			"content": context.system_preamble(settings, skills),
-		})
+	_refresh_system()
 	messages.append({"role": "user", "content": payload})
 	_turn_id = snapshots.begin_turn(text.substr(0, 80))
 	_continued_length = false
+	_retried = false
 	_save_persisted()
 	running = true
 	_step()
@@ -158,17 +166,28 @@ func reject_plan() -> void:
 
 
 func stop() -> void:
-	if not running:
+	if not running and _queue.is_empty():
 		return
 	running = false
+	_queue.clear()
 	_pending_calls.clear()
 	_approvals.clear()
 	if openai:
 		openai.cancel()
+	if anthropic and anthropic.has_method("cancel"):
+		anthropic.cancel()
+	if codex and codex.has_method("cancel"):
+		codex.cancel()
+	if gemini and gemini.has_method("cancel"):
+		gemini.cancel()
+	_save_persisted()
 	turn_done.emit("Stopped.")
 
 
 func _step() -> void:
+	if not running:
+		return
+	_refresh_system()
 	_compact()
 	status.emit("Talking to %s…" % settings.provider_id())
 	var compact := _use_compact_tools()
@@ -182,7 +201,7 @@ func _step() -> void:
 			settings.model(),
 			messages,
 			tools,
-			int(settings.get_value("max_tokens", 4096)),
+			int(settings.get_value("max_tokens", 32768)),
 			float(settings.get_value("temperature", 0.2))
 		)
 		return
@@ -209,9 +228,10 @@ func _step() -> void:
 			system,
 			rest,
 			tools,
-			int(settings.get_value("max_tokens", 4096)),
+			int(settings.get_value("max_tokens", 32768)),
 			float(settings.get_value("temperature", 0.2)),
-			oauth
+			oauth,
+			bool(settings.get_value("think", false))
 		)
 		return
 	if provider == "gemini_cli":
@@ -228,20 +248,24 @@ func _step() -> void:
 			settings.model() if settings.model() != "" else "gemini-2.5-flash",
 			messages,
 			tools,
-			int(settings.get_value("max_tokens", 4096)),
+			int(settings.get_value("max_tokens", 32768)),
 			float(settings.get_value("temperature", 0.2))
 		)
 		return
+	var cap: Dictionary = settings.capabilities()
 	var payload := {
 		"model": settings.model(),
 		"temperature": float(settings.get_value("temperature", 0.2)),
-		"max_tokens": int(settings.get_value("max_tokens", 4096)),
+		"max_tokens": int(settings.get_value("max_tokens", 32768)),
 		"messages": messages,
 		"tools": tools,
-		"num_ctx": int(settings.get_value("num_ctx", 65536)),
-		"keep_alive": str(settings.get_value("keep_alive", "-1")),
-		"think": bool(settings.get_value("think", false)),
 	}
+	if bool(cap.get("num_ctx", false)):
+		payload["num_ctx"] = int(settings.get_value("num_ctx", 131072))
+	if bool(cap.get("keep_alive", false)):
+		payload["keep_alive"] = str(settings.get_value("keep_alive", "-1"))
+	if bool(cap.get("think", false)):
+		payload["think"] = bool(settings.get_value("think", false))
 	openai.chat(settings.base_url(), settings.api_key(), payload)
 
 
@@ -260,6 +284,11 @@ func load_persisted() -> void:
 func _save_persisted() -> void:
 	LumenPaths.ensure_dirs()
 	LumenJson.write_file(LumenPaths.CHAT_DIR.path_join("current.json"), messages)
+	if chat_id != "" and not messages.is_empty():
+		LumenChatStore.save_chat(chat_id, messages, {
+			"provider": settings.provider_id() if settings else "",
+			"model": settings.model() if settings else "",
+		})
 
 
 func _on_stream(text: String) -> void:
@@ -286,6 +315,10 @@ func _on_openai(result: Dictionary) -> void:
 			message["tool_calls"] = tool_calls
 			text = ""
 			message["content"] = ""
+	for i in tool_calls.size():
+		var call: Variant = tool_calls[i]
+		if typeof(call) == TYPE_DICTIONARY and str(call.get("id", "")) == "":
+			call["id"] = "call_%d_%d" % [Time.get_ticks_msec(), i]
 	messages.append(message)
 	_save_persisted()
 	var streamed := _streamed
@@ -308,12 +341,10 @@ func _on_openai(result: Dictionary) -> void:
 			})
 			_step()
 			return
-		running = false
-		turn_done.emit(text if text != "" else "(done)")
+		_finish_turn(text if text != "" else "(done)")
 		return
-	if _count_assistant_turns() > MAX_STEPS:
-		running = false
-		_fail("Stopped after %d tool steps. Narrow the request or start /new." % MAX_STEPS)
+	if _count_assistant_turns() > _max_steps():
+		_fail("Stopped after %d tool steps. Narrow the request or start New." % _max_steps())
 		return
 	_pending_calls = tool_calls.duplicate(true)
 	_approvals.clear()
@@ -411,42 +442,78 @@ func _count_assistant_turns() -> int:
 
 
 func _use_compact_tools() -> bool:
-	if not bool(settings.get_value("compact_tools", true)):
-		return false
-	var provider := settings.provider_id()
-	if provider in ["ollama", "lmstudio", "custom"]:
+	if settings == null:
 		return true
-	var url := settings.base_url().to_lower()
-	return url.find("127.0.0.1") >= 0 or url.find("localhost") >= 0
+	return bool(settings.get_value("compact_tools", settings.kind() == LumenSettings.KIND_LOCAL))
 
 
 func _compact() -> void:
 	var tool_cap := int(settings.get_value("tool_result_chars", 8000))
-	var ctx := maxi(int(settings.get_value("num_ctx", 65536)), 8192)
-	var gen := int(settings.get_value("max_tokens", 4096))
-	var budget := maxi((ctx - gen - 4096) * 3, 24000)
+	var ctx := settings.context_budget() if settings else 131072
+	var gen := int(settings.get_value("max_tokens", 32768))
+	var budget := maxi(int((ctx - gen) * 2.5), 32000)
 	var system: Array = []
 	var tail: Array = []
 	for msg in messages:
+		if typeof(msg) != TYPE_DICTIONARY:
+			continue
 		var copy: Dictionary = (msg as Dictionary).duplicate(true)
-		if str(copy.get("role", "")) == "tool":
+		var role := str(copy.get("role", ""))
+		if role == "tool":
 			copy["content"] = LumenJson.clamp_text(str(copy.get("content", "")), tool_cap)
-		if str(copy.get("role", "")) == "system":
+		if role == "system":
 			system.append(copy)
 		else:
 			tail.append(copy)
+	if _prompt_chars(system + tail) > budget:
+		for msg in tail:
+			if str(msg.get("role", "")) == "tool":
+				msg["content"] = LumenJson.clamp_text(str(msg.get("content", "")), mini(tool_cap, 1600))
+	if _prompt_chars(system + tail) > budget:
+		var keep := 10 if settings and settings.kind() == LumenSettings.KIND_LOCAL else 16
+		while tail.size() > keep:
+			_drop_oldest_turn(tail)
+			if _prompt_chars(system + tail) <= budget:
+				break
+		if not tail.is_empty() and str(tail[0].get("content", "")).find("Older turns") < 0:
+			tail.insert(0, {
+				"role": "user",
+				"content": "(Older turns compacted to stay inside the context window. Re-read files you need.)",
+			})
 	messages = system + tail
-	if _prompt_chars(messages) <= budget:
+
+
+func _drop_oldest_turn(tail: Array) -> void:
+	if tail.is_empty():
 		return
-	for msg in tail:
-		if str(msg.get("role", "")) == "tool":
-			msg["content"] = LumenJson.clamp_text(str(msg.get("content", "")), mini(tool_cap, 2000))
-	messages = system + tail
-	if _prompt_chars(messages) <= budget:
-		return
-	while tail.size() > 8 and _prompt_chars(system + tail) > budget:
+	tail.remove_at(0)
+	while not tail.is_empty() and str(tail[0].get("role", "")) == "tool":
 		tail.remove_at(0)
-	messages = system + [{"role": "user", "content": "(Older turns dropped to stay inside the context window.)"}] + tail
+
+
+func _refresh_system() -> void:
+	if context == null or settings == null:
+		return
+	var preamble := context.system_preamble(settings, skills)
+	if messages.is_empty() or str(messages[0].get("role", "")) != "system":
+		messages.insert(0, {"role": "system", "content": preamble})
+	else:
+		messages[0]["content"] = preamble
+
+
+func _max_steps() -> int:
+	if settings and settings.kind() == LumenSettings.KIND_LOCAL:
+		return MAX_STEPS_LOCAL
+	return MAX_STEPS_CLOUD
+
+
+func _finish_turn(text: String) -> void:
+	running = false
+	_save_persisted()
+	turn_done.emit(text)
+	if not _queue.is_empty():
+		var nxt: Dictionary = _queue.pop_front()
+		submit_user(str(nxt.get("text", "")), nxt.get("attachments", []))
 
 
 func _prompt_chars(rows: Array) -> int:
@@ -461,6 +528,7 @@ func _prompt_chars(rows: Array) -> int:
 	return total
 
 
+
 func _capture_edited_scene() -> void:
 	var root := EditorInterface.get_edited_scene_root()
 	if root == null:
@@ -473,6 +541,18 @@ func _capture_edited_scene() -> void:
 
 
 func _fail(message: String) -> void:
+	if running and not _retried and _is_retryable(message):
+		_retried = true
+		status.emit("Retrying…")
+		_step()
+		return
 	running = false
-	log.error(message)
+	_save_persisted()
+	if log:
+		log.error(message)
 	turn_failed.emit(message)
+
+
+func _is_retryable(message: String) -> bool:
+	var lower := message.to_lower()
+	return "timeout" in lower or "429" in lower or "temporar" in lower or "reset" in lower or "unavailable" in lower

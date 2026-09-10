@@ -92,7 +92,7 @@ func _which(bin: String) -> bool:
 		var candidate := folder.path_join(bin)
 		if FileAccess.file_exists(candidate) or FileAccess.file_exists(candidate + ".exe") or FileAccess.file_exists(candidate + ".cmd"):
 			return true
-	return OS.execute(bin, ["--version"], [], false, false) == 0
+	return false
 
 
 func _open_terminal(command: String) -> Error:
