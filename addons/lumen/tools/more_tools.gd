@@ -2,8 +2,7 @@
 class_name LumenMoreTools
 extends RefCounted
 
-## Extra tools that finish the 1.2 surface. Registered after the builtins so
-## generate_image / get_errors / run_tests replace the older stubs.
+## Extra tools registered after builtins. Later names replace earlier ones.
 
 var settings: LumenSettings
 
@@ -13,6 +12,18 @@ func attach(p_settings: LumenSettings) -> void:
 
 
 func register(registry: LumenToolRegistry) -> void:
+	registry.register_tool(LumenToolSpec.new(
+		"generate_image", "Write res://assets/lumen/*.png. Uses image_base_url when set.",
+		_schema({
+			"prompt": {"type": "string"},
+			"filename": {"type": "string"},
+			"size": {"type": "string"},
+		}, ["filename", "size"], ["prompt"]),
+		false, generate_image
+	))
+
+
+func _legacy_unused_register(registry: LumenToolRegistry) -> void:
 	registry.register_tool(LumenToolSpec.new(
 		"fill_tiles", "Fill a rectangle of cells on a TileMapLayer.",
 		_schema({

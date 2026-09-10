@@ -388,11 +388,20 @@ func create_csharp_script(args: Dictionary) -> Dictionary:
 	var base := str(args.get("base", "Node")).strip_edges()
 	if base == "":
 		base = "Node"
-	var body := "using Godot;\n\npublic partial class %s : %s\n{\n\tpublic override void _Ready()\n\t{\n\t}\n}\n" % [klass, base]
+	var body := "using Godot;\nusing System;\n\npublic partial class %s : %s\n{\n\tpublic override void _Ready()\n\t{\n\t}\n\n\tpublic override void _Process(double delta)\n\t{\n\t}\n}\n" % [klass, base]
 	var err := LumenJson.write_text(path, body)
 	if err != OK:
 		return {"ok": false, "error": error_string(err)}
 	_scan()
+	var node_path := str(args.get("node", "")).strip_edges()
+	if node_path != "":
+		var node := _find(node_path)
+		if node:
+			var script := load(path)
+			if script:
+				node.set_script(script)
+				_dirty()
+				return {"ok": true, "path": path, "attached": node_path}
 	return {"ok": true, "path": path}
 
 
@@ -459,18 +468,30 @@ func search_godot_docs(args: Dictionary) -> Dictionary:
 	var topic := str(args.get("topic", "")).strip_edges()
 	if topic == "":
 		return {"ok": false, "error": "Empty topic."}
-	var needle := topic.to_lower().replace(" ", "")
+	var needle := topic.to_lower()
+	var classdb: Array = []
+	for cls in ClassDB.get_class_list():
+		var name := str(cls)
+		if name.to_lower().find(needle) < 0:
+			continue
+		classdb.append({
+			"name": name,
+			"parent": ClassDB.get_parent_class(name),
+			"url": "https://docs.godotengine.org/en/stable/classes/class_%s.html" % name.to_lower(),
+		})
+		if classdb.size() >= 16:
+			break
 	var hits: Array = []
 	for row in LumenDocsIndex.ENTRIES:
-		var name := str(row.get("name", ""))
-		var blob := (name + " " + str(row.get("blurb", ""))).to_lower().replace(" ", "")
-		if name.to_lower() == topic.to_lower() or blob.find(needle) >= 0:
+		var blob := (str(row.get("name", "")) + " " + str(row.get("blurb", ""))).to_lower()
+		if blob.find(needle) >= 0:
 			hits.append(row)
 		if hits.size() >= 12:
 			break
 	var slug := topic.to_lower().replace(" ", "_")
 	return {
 		"ok": true,
+		"classdb": classdb,
 		"hits": hits,
 		"class_url": "https://docs.godotengine.org/en/stable/classes/class_%s.html" % slug,
 		"search_url": "https://docs.godotengine.org/en/stable/search.html?q=%s" % topic.uri_encode(),

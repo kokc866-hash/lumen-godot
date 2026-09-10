@@ -20,6 +20,10 @@ const EXTRA := [
 	"get_debugger", "get_playtest_report",
 	"update_todos", "create_primitive_mesh", "set_mesh_material", "add_csg", "instance_3d",
 	"list_mcp_servers", "mcp_call",
+	"search_engine_api", "list_class_methods",
+	"set_animation_tree_param", "list_shader_params",
+	"playtest_input", "run_gut_tests", "attach_csharp", "list_slash_commands",
+	"generate_sprite", "generate_3d_model", "generate_3d_from_image", "poll_3d_task",
 ]
 
 

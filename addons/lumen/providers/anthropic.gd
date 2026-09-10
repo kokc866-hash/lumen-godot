@@ -39,6 +39,7 @@ func chat(api_key: String, model: String, system: String, messages: Array, tools
 		"messages": _to_anthropic_messages(messages),
 	}
 	if think:
+		# docs.claude.com: thinking.budget_tokens >= 1024 and < max_tokens
 		var budget := mini(4096, out_tokens - 1024)
 		if budget >= 1024:
 			payload["thinking"] = {"type": "enabled", "budget_tokens": budget}

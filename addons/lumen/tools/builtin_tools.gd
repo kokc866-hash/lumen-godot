@@ -22,8 +22,15 @@ func register(registry: LumenToolRegistry) -> void:
 		_object_schema({}), true, get_project_info
 	))
 	registry.register_tool(LumenToolSpec.new(
-		"get_scene_tree", "Inspect the edited scene tree. Optional path limits the walk.",
-		_object_schema({"path": {"type": "string", "description": "Node path from scene root"}}, ["path"]),
+		"get_scene_tree", "Inspect the edited scene. Filter by path, name, type, group, depth, limit.",
+		_object_schema({
+			"path": {"type": "string", "description": "Start node from scene root"},
+			"name": {"type": "string", "description": "Substring match on node name"},
+			"type": {"type": "string", "description": "Class name, e.g. CharacterBody2D"},
+			"group": {"type": "string"},
+			"depth": {"type": "integer", "description": "Max depth from start, default 12"},
+			"limit": {"type": "integer", "description": "Max nodes, default 400"},
+		}, ["path", "name", "type", "group", "depth", "limit"]),
 		true, get_scene_tree
 	))
 	registry.register_tool(LumenToolSpec.new(
@@ -267,30 +274,64 @@ func get_scene_tree(args: Dictionary) -> Dictionary:
 		start = root.get_node_or_null(NodePath(path))
 		if start == null:
 			return {"ok": false, "error": "Node not found: %s" % path}
-	return {"ok": true, "tree": _walk(start, 0, 400)}
+	var filt := {
+		"name": str(args.get("name", "")).to_lower(),
+		"type": str(args.get("type", "")),
+		"group": str(args.get("group", "")),
+	}
+	var max_depth := clampi(int(args.get("depth", 12)), 1, 32)
+	var limit := clampi(int(args.get("limit", 400)), 1, 800)
+	var filtered: bool = str(filt.get("name", "")) != "" or str(filt.get("type", "")) != "" or str(filt.get("group", "")) != ""
+	if filtered:
+		var matches: Array = []
+		_collect(start, root, filt, 0, max_depth, matches, limit)
+		return {"ok": true, "matches": matches, "count": matches.size()}
+	return {"ok": true, "tree": _walk(start, root, 0, max_depth, limit)}
 
 
-func _walk(node: Node, depth: int, budget: int) -> Dictionary:
+func _walk(node: Node, root: Node, depth: int, max_depth: int, budget: int) -> Dictionary:
 	var kids: Array = []
 	var used := 1
-	if depth < 12:
+	if depth < max_depth:
 		for child in node.get_children():
 			if used >= budget:
 				kids.append({"truncated": true})
 				break
-			var branch := _walk(child, depth + 1, budget - used)
+			var branch := _walk(child, root, depth + 1, max_depth, budget - used)
 			used += int(branch.get("_used", 1))
 			kids.append(branch)
 	var out := {
 		"name": node.name,
 		"type": node.get_class(),
-		"path": str(node.get_path()),
+		"path": str(root.get_path_to(node)),
+		"groups": node.get_groups(),
 		"children": kids,
 	}
 	if node is CanvasItem:
 		out["visible"] = (node as CanvasItem).visible
 	out["_used"] = used
 	return out
+
+
+func _collect(node: Node, root: Node, filt: Dictionary, depth: int, max_depth: int, matches: Array, limit: int) -> void:
+	if matches.size() >= limit or depth > max_depth:
+		return
+	var ok := true
+	if filt["name"] != "" and str(node.name).to_lower().find(filt["name"]) < 0:
+		ok = false
+	if ok and filt["type"] != "" and node.get_class() != filt["type"] and not node.is_class(filt["type"]):
+		ok = false
+	if ok and filt["group"] != "" and not node.is_in_group(filt["group"]):
+		ok = false
+	if ok:
+		matches.append({
+			"name": node.name,
+			"type": node.get_class(),
+			"path": str(root.get_path_to(node)),
+			"groups": node.get_groups(),
+		})
+	for child in node.get_children():
+		_collect(child, root, filt, depth + 1, max_depth, matches, limit)
 
 
 func read_file(args: Dictionary) -> Dictionary:
@@ -300,9 +341,9 @@ func read_file(args: Dictionary) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {"ok": false, "error": "Missing file: %s" % path}
 	var text := LumenJson.read_text(path)
-	var cap := 12000
+	var cap := 8000
 	if settings:
-		cap = int(settings.get_value("tool_result_chars", 12000))
+		cap = int(settings.get_value("tool_result_chars", 8000))
 	return {"ok": true, "path": path, "content": LumenJson.clamp_text(text, cap)}
 
 
