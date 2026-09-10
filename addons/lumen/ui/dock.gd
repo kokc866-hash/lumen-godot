@@ -1,1 +1,1 @@
-PLACEHOLDER_LOAD_FROM_DISK
+file:///workspace/godot-project/addons/lumen/ui/dock.gd
