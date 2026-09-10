@@ -95,6 +95,27 @@ layout_mode = 2
 tooltip_text = "Insert the selected node or scene path as @mention."
 text = "@"
 
+[node name="ChatFold" type="FoldableContainer" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+title = "Chats"
+folded = true
+
+[node name="ChatInner" type="VBoxContainer" parent="Root/ChatFold"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="ChatSearch" type="LineEdit" parent="Root/ChatFold/ChatInner"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Search chats"
+
+[node name="ChatList" type="ItemList" parent="Root/ChatFold/ChatInner"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+max_text_lines = 1
+
 [node name="ConnFold" type="FoldableContainer" parent="Root"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -135,10 +156,23 @@ placeholder_text = "http://127.0.0.1:11434/v1"
 layout_mode = 2
 text = "Model"
 
+[node name="ModelOption" type="OptionButton" parent="Root/ConnFold/ConnInner/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+fit_to_longest_item = false
+tooltip_text = "Select a scanned model. Custom ids use the field below."
+
+[node name="CustomLabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Custom"
+
 [node name="ModelEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
 unique_name_in_owner = true
 layout_mode = 2
-placeholder_text = "model id"
+placeholder_text = "custom model id"
+tooltip_text = "Fallback when the model is not in the scanned list."
 
 [node name="KLabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
 unique_name_in_owner = true
@@ -178,7 +212,7 @@ text = "Save"
 [node name="AdvFold" type="FoldableContainer" parent="Root"]
 unique_name_in_owner = true
 layout_mode = 2
-title = "Model & extras"
+title = "Modell"
 folded = true
 
 [node name="AdvInner" type="VBoxContainer" parent="Root/AdvFold"]
@@ -198,8 +232,8 @@ text = "Context"
 [node name="CtxEdit" type="LineEdit" parent="Root/AdvFold/AdvInner/AdvGrid"]
 unique_name_in_owner = true
 layout_mode = 2
-placeholder_text = "65536"
-tooltip_text = "Sent as options.num_ctx on Ollama /api/chat."
+placeholder_text = "131072"
+tooltip_text = "Sent as options.num_ctx on Ollama /api/chat. Qwen 3.6/3.8 27B native is 262144."
 
 [node name="KeepLabel" type="Label" parent="Root/AdvFold/AdvInner/AdvGrid"]
 layout_mode = 2
@@ -228,17 +262,8 @@ text = "Max tokens"
 [node name="MaxEdit" type="LineEdit" parent="Root/AdvFold/AdvInner/AdvGrid"]
 unique_name_in_owner = true
 layout_mode = 2
-placeholder_text = "4096"
+placeholder_text = "32768"
 tooltip_text = "Sent as options.num_predict / max_tokens."
-
-[node name="ILabel" type="Label" parent="Root/AdvFold/AdvInner/AdvGrid"]
-layout_mode = 2
-text = "Image URL"
-
-[node name="ImageUrlEdit" type="LineEdit" parent="Root/AdvFold/AdvInner/AdvGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-placeholder_text = "optional /v1 images"
 
 [node name="PortLabel" type="Label" parent="Root/AdvFold/AdvInner/AdvGrid"]
 layout_mode = 2
@@ -327,26 +352,65 @@ layout_mode = 2
 disabled = true
 text = "Use Gemini"
 
-[node name="ChatFold" type="FoldableContainer" parent="Root"]
+[node name="AssetFold" type="FoldableContainer" parent="Root"]
 unique_name_in_owner = true
 layout_mode = 2
-title = "Chats"
+title = "Assets"
 folded = true
 
-[node name="ChatInner" type="VBoxContainer" parent="Root/ChatFold"]
+[node name="AssetInner" type="VBoxContainer" parent="Root/AssetFold"]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="ChatSearch" type="LineEdit" parent="Root/ChatFold/ChatInner"]
-unique_name_in_owner = true
+[node name="AssetHint" type="Label" parent="Root/AssetFold/AssetInner"]
 layout_mode = 2
-placeholder_text = "Search chats"
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 11
+text = "Optional. Empty keys = no sprite / text-to-3D."
 
-[node name="ChatList" type="ItemList" parent="Root/ChatFold/ChatInner"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 96)
+[node name="AssetGrid" type="GridContainer" parent="Root/AssetFold/AssetInner"]
 layout_mode = 2
-max_text_lines = 1
+columns = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 4
+
+[node name="ILabel" type="Label" parent="Root/AssetFold/AssetInner/AssetGrid"]
+layout_mode = 2
+text = "Image URL"
+
+[node name="ImageUrlEdit" type="LineEdit" parent="Root/AssetFold/AssetInner/AssetGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "empty = Retro Diffusion"
+
+[node name="IkLabel" type="Label" parent="Root/AssetFold/AssetInner/AssetGrid"]
+layout_mode = 2
+text = "Image key"
+
+[node name="ImageKeyEdit" type="LineEdit" parent="Root/AssetFold/AssetInner/AssetGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+secret = true
+placeholder_text = "Retro / OpenAI image key"
+
+[node name="MLabel" type="Label" parent="Root/AssetFold/AssetInner/AssetGrid"]
+layout_mode = 2
+text = "Mesh URL"
+
+[node name="MeshUrlEdit" type="LineEdit" parent="Root/AssetFold/AssetInner/AssetGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "https://api.meshy.ai"
+
+[node name="MkLabel" type="Label" parent="Root/AssetFold/AssetInner/AssetGrid"]
+layout_mode = 2
+text = "Mesh key"
+
+[node name="MeshKeyEdit" type="LineEdit" parent="Root/AssetFold/AssetInner/AssetGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+secret = true
+placeholder_text = "Meshy API key"
 
 [node name="Transcript" type="RichTextLabel" parent="Root"]
 unique_name_in_owner = true
