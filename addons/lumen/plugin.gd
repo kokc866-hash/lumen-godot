@@ -20,6 +20,7 @@ var codex: LumenCodexSubscription
 var gemini: LumenGemini
 var loop: LumenAgentLoop
 var mcp: LumenMcpServer
+var discovery: LumenModelDiscovery
 var _debugger: EditorDebuggerPlugin
 
 
@@ -40,6 +41,11 @@ func _enter_tree() -> void:
 	extras.register(registry)
 	var query := LumenSceneQuery.new()
 	query.register(registry)
+	var depth := LumenDepthTools.new()
+	depth.register(registry)
+	var assets := LumenAssetGen.new()
+	assets.attach(settings)
+	assets.register(registry)
 	registry.mark_extras()
 	registry.register_meta()
 	plan = LumenPlanMode.new()
@@ -72,14 +78,20 @@ func _enter_tree() -> void:
 	dock.test_pressed.connect(_on_test_connection)
 	dock.stop_pressed.connect(_on_stop)
 	dock.models_pressed.connect(_on_list_models)
-	if not openai.models_listed.is_connected(_on_models_listed):
-		openai.models_listed.connect(_on_models_listed)
+	discovery = LumenModelDiscovery.new()
+	discovery.setup(settings, cli_auth, openai, anthropic, gemini, log)
+	if not discovery.models_listed.is_connected(_on_models_listed):
+		discovery.models_listed.connect(_on_models_listed)
+	if not discovery.failed.is_connected(_on_models_failed):
+		discovery.failed.connect(_on_models_failed)
 	loop.status.connect(dock.set_status)
 	loop.assistant_delta.connect(dock.append_assistant)
 	if loop.has_signal("stream_delta"):
 		loop.stream_delta.connect(dock.append_stream)
 	if dock.has_signal("chat_open"):
 		dock.chat_open.connect(_on_chat_open)
+	if dock.has_signal("chat_delete"):
+		dock.chat_delete.connect(_on_chat_delete)
 	_debugger = LumenDebuggerPlugin.new()
 	add_debugger_plugin(_debugger)
 	dock.refresh_chats()
@@ -188,9 +200,9 @@ func _on_send(text: String, mentions: PackedStringArray) -> void:
 		_slash(text)
 		return
 	if loop.running:
-		dock.set_status("Already running.")
-		return
-	dock.set_busy(true)
+		dock.set_status("Queued")
+	else:
+		dock.set_busy(true)
 	var attachments: Array = []
 	for mention in mentions:
 		var path := mention if mention.begins_with("res://") else "res://" + mention
@@ -216,17 +228,50 @@ func _slash(text: String) -> void:
 		"model":
 			var parts := text.split(" ", false, 1)
 			if parts.size() > 1:
-				settings.set_value("model", parts[1].strip_edges())
-				dock.model_edit.text = settings.model()
-				dock.append_system("Model set to %s" % settings.model())
+				var mid := parts[1].strip_edges()
+				var pid := settings.provider_id()
+				if pid == "":
+					dock.append_system("Choose a provider first.")
+				else:
+					dock.commit_settings()
+					settings.switch_model(pid, mid)
+					dock.bind_settings(settings)
+					dock.append_system("Model set to %s" % settings.model())
 			else:
 				dock.append_system("Current model: %s" % settings.model())
 		"undo":
 			_on_undo()
 		"stop":
 			_on_stop()
+		"docs":
+			var q := text.substr(5).strip_edges()
+			if q == "":
+				dock.append_system("Usage: /docs CharacterBody2D")
+			else:
+				var extras := LumenEditorExtras.new()
+				dock.append_system(JSON.stringify(extras.search_godot_docs({"topic": q})))
+		"play":
+			EditorInterface.play_current_scene()
+			dock.append_system("Playing current scene.")
 		_:
-			dock.append_system("Unknown command. /new /plan /default /model <id> /undo /stop")
+			if not _try_custom_slash(cmd, text):
+				dock.append_system("Unknown command. /new /plan /default /model /undo /stop /docs /play")
+
+
+func _try_custom_slash(cmd: String, text: String) -> bool:
+	for path in ["res://lumen_commands.json", "user://lumen/commands.json"]:
+		var data: Variant = LumenJson.read_file(path, {})
+		if typeof(data) != TYPE_DICTIONARY or not data.has(cmd):
+			continue
+		var prompt := str(data[cmd])
+		var rest := text.substr(cmd.length() + 1).strip_edges()
+		if rest != "":
+			prompt += "\n\n" + rest
+		dock.append_system("Custom /%s" % cmd)
+		loop.submit_user(prompt, [])
+		dock.set_busy(true)
+		return true
+	return false
 
 
 func _on_stop() -> void:
@@ -237,12 +282,12 @@ func _on_stop() -> void:
 
 
 func _on_list_models() -> void:
-	var url := settings.base_url().strip_edges()
-	if url == "":
-		dock.append_system("Set a Base URL first.")
+	var pid := settings.provider_id()
+	if pid == "":
+		dock.append_system("Choose a provider first.")
 		return
 	dock.set_status("Listing models…")
-	openai.list_models(url, settings.api_key())
+	discovery.list_models(pid)
 
 
 func _on_models_listed(names: PackedStringArray) -> void:
@@ -250,9 +295,29 @@ func _on_models_listed(names: PackedStringArray) -> void:
 	dock.apply_models(names)
 
 
+func _on_models_failed(message: String) -> void:
+	var pid := settings.provider_id()
+	var fallback := discovery.fallback_catalog(pid) if discovery else PackedStringArray()
+	dock.set_status("Idle")
+	if not fallback.is_empty():
+		dock.apply_models(fallback)
+		dock.append_system("Model discovery failed: %s — showing seed/saved catalog (%d)." % [message, fallback.size()])
+	else:
+		dock.append_system("Model discovery failed: %s" % message)
+
+
+func _chat_meta() -> Dictionary:
+	return {
+		"id": loop.chat_id,
+		"provider": settings.provider_id() if settings else "",
+		"model": settings.model() if settings else "",
+	}
+
+
 func _on_new() -> void:
 	loop.stop()
-	LumenChatStore.archive(loop.messages)
+	if not loop.messages.is_empty():
+		loop.chat_id = LumenChatStore.archive(loop.messages, _chat_meta())
 	LumenTodos.clear()
 	loop.reset_chat()
 	dock.reset_transcript()
@@ -265,13 +330,25 @@ func _on_new() -> void:
 
 
 func _on_chat_open(id: String) -> void:
+	if id == "" or id == loop.chat_id:
+		return
 	loop.stop()
-	LumenChatStore.archive(loop.messages)
+	if not loop.messages.is_empty():
+		LumenChatStore.archive(loop.messages, _chat_meta())
+	loop.chat_id = id
 	loop.load_messages(LumenChatStore.load_chat(id))
 	dock.reset_transcript()
 	dock.restore_messages(loop.messages)
 	dock.set_status("Loaded chat")
 	dock.refresh_chats()
+
+
+func _on_chat_delete(id: String) -> void:
+	LumenChatStore.delete_chat(id)
+	if id == loop.chat_id:
+		_on_new()
+	else:
+		dock.refresh_chats()
 
 
 func _on_undo() -> void:
@@ -325,22 +402,30 @@ func _on_cli_login(kind: String) -> void:
 
 
 func _on_cli_use(kind: String) -> void:
+	var pid := ""
+	var default_mid := ""
 	match kind:
 		"codex":
-			settings.set_value("provider", "codex_cli")
-			if settings.model() == "":
-				settings.set_value("model", "gpt-5.3-codex")
+			pid = "codex_cli"
+			default_mid = "gpt-5.3-codex"
 		"claude":
-			settings.set_value("provider", "claude_cli")
-			if settings.model() == "":
-				settings.set_value("model", "claude-sonnet-4-5")
+			pid = "claude_cli"
+			default_mid = "claude-sonnet-4-5"
 		"gemini":
-			settings.set_value("provider", "gemini_cli")
-			if settings.model() == "":
-				settings.set_value("model", "gemini-2.5-flash")
+			pid = "gemini_cli"
+			default_mid = "gemini-2.5-flash"
 		_:
 			dock.append_system("Unknown CLI.")
 			return
+	settings.switch_provider(pid)
+	var mid := settings.model()
+	if mid == "":
+		mid = default_mid
+	settings.switch_model(pid, mid)
+	# Seed fallback only — live List Models refreshes the real catalog.
+	var names := settings.catalog(pid)
+	if not names.is_empty():
+		settings.set_model_catalog(names, pid)
 	dock.bind_settings(settings)
 	dock.refresh_cli_status()
 	dock.append_system("Using %s via the official CLI session on this machine." % kind)

@@ -10,6 +10,7 @@ signal finished(result: Dictionary)
 signal failed(message: String)
 signal probed(ok: bool, message: String)
 signal models_listed(names: PackedStringArray)
+signal models_failed(message: String)
 signal stream_delta(text: String)
 
 var http: HTTPRequest
@@ -126,7 +127,7 @@ func _openai_models_url(base_url: String) -> String:
 
 func list_models(base_url: String, api_key: String) -> void:
 	if _busy:
-		failed.emit("Provider is already running a request.")
+		models_failed.emit("Provider is already running a request.")
 		return
 	_busy = true
 	_listing = true
@@ -139,7 +140,7 @@ func list_models(base_url: String, api_key: String) -> void:
 	if err != OK:
 		_busy = false
 		_listing = false
-		failed.emit("Model list failed: %s" % error_string(err))
+		models_failed.emit("Model list failed: %s" % error_string(err))
 
 
 func _on_completed(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
@@ -151,10 +152,15 @@ func _on_completed(result: int, code: int, _headers: PackedStringArray, body: Pa
 	if cancelled:
 		return
 	if result != HTTPRequest.RESULT_SUCCESS:
+		var msg := ""
 		if result == HTTPRequest.RESULT_TIMEOUT:
-			failed.emit("Timed out waiting for the local model. Large models need minutes to load. Keep the model resident (keep_alive -1) and retry.")
+			msg = "Timed out waiting for the local model. Large models need minutes to load. Keep the model resident (keep_alive -1) and retry."
 		else:
-			failed.emit("Network error (%d)." % result)
+			msg = "Network error (%d)." % result
+		if listing:
+			models_failed.emit(msg)
+		else:
+			failed.emit(msg)
 		return
 	var text := body.get_string_from_utf8()
 	var parsed: Variant = JSON.parse_string(text)
@@ -162,7 +168,11 @@ func _on_completed(result: int, code: int, _headers: PackedStringArray, body: Pa
 		var detail := text
 		if typeof(parsed) == TYPE_DICTIONARY:
 			detail = str(parsed.get("error", parsed))
-		failed.emit("Provider HTTP %d: %s" % [code, LumenJson.clamp_text(str(detail), 800)])
+		var msg2 := "Provider HTTP %d: %s" % [code, LumenJson.clamp_text(str(detail), 800)]
+		if listing:
+			models_failed.emit(msg2)
+		else:
+			failed.emit(msg2)
 		return
 	if listing:
 		models_listed.emit(_model_names(parsed))
@@ -226,9 +236,13 @@ func _to_openai(payload: Dictionary, local: bool) -> Dictionary:
 		"model": payload.get("model", ""),
 		"messages": payload.get("messages", []),
 		"temperature": payload.get("temperature", 0.2),
-		"max_tokens": payload.get("max_tokens", 4096),
 		"stream": false,
 	}
+	var cap := int(payload.get("max_tokens", 4096))
+	out["max_tokens"] = cap
+	# Official Chat Completions: max_tokens is deprecated; reasoning models want max_completion_tokens.
+	if not local:
+		out["max_completion_tokens"] = cap
 	if payload.has("tools"):
 		out["tools"] = payload.get("tools")
 		if local:

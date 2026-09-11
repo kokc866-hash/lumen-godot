@@ -77,3 +77,4 @@ func system_preamble(settings: LumenSettings, skills: LumenSkillLoader) -> Strin
 	if agents != "":
 		parts.append("AGENTS.md:\n%s" % LumenJson.clamp_text(agents, 2500))
 	return "\n\n".join(parts)
+

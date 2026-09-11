@@ -35,7 +35,17 @@ func _has_capture(capture: String) -> bool:
 
 
 func _capture(message: String, data: Array, _session_id: int) -> bool:
-	_note("%s %s" % [message, str(data)])
+	var line := "%s %s" % [message, str(data)]
+	_note(line)
+	var lower := line.to_lower()
+	if "error" in lower or "stack" in lower or "break" in lower:
+		stacks.append({
+			"at": Time.get_datetime_string_from_system(),
+			"message": message,
+			"data": str(data).substr(0, 500),
+		})
+		if stacks.size() > 40:
+			stacks.remove_at(0)
 	return false
 
 

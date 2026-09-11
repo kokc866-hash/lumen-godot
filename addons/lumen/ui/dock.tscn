@@ -21,12 +21,12 @@ offset_left = 6.0
 offset_top = 4.0
 offset_right = -6.0
 offset_bottom = -4.0
-theme_override_constants/separation = 4
+theme_override_constants/separation = 6
 
 [node name="Header" type="HBoxContainer" parent="Root"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 5
+theme_override_constants/separation = 4
 
 [node name="Title" type="Label" parent="Root/Header"]
 unique_name_in_owner = true
@@ -34,41 +34,36 @@ layout_mode = 2
 text = "Lumen"
 theme_override_font_sizes/font_size = 14
 
-[node name="ModelChipWrap" type="PanelContainer" parent="Root/Header"]
-unique_name_in_owner = true
+[node name="HeaderSpacer" type="Control" parent="Root/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ModelChip" type="Label" parent="Root/Header/ModelChipWrap"]
+[node name="HistoryButton" type="Button" parent="Root/Header"]
 unique_name_in_owner = true
 layout_mode = 2
-clip_text = true
-text = ""
-tooltip_text = "Current model"
-theme_override_font_sizes/font_size = 11
-
-[node name="ConnChipWrap" type="PanelContainer" parent="Root/Header"]
-unique_name_in_owner = true
-layout_mode = 2
-
-[node name="ConnChip" type="Label" parent="Root/Header/ConnChipWrap"]
-unique_name_in_owner = true
-layout_mode = 2
-text = ""
-theme_override_font_sizes/font_size = 11
+tooltip_text = "Chat history"
+text = "☰"
+flat = true
 
 [node name="NewButton" type="Button" parent="Root/Header"]
 unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "Archive this chat and start a new one."
-text = "New"
+tooltip_text = "New chat"
+text = "+"
 flat = true
 
 [node name="UndoButton" type="Button" parent="Root/Header"]
 unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "Restore files and the edited scene from the last agent turn."
-text = "Undo"
+tooltip_text = "Undo last agent turn"
+text = "↶"
+flat = true
+
+[node name="SettingsButton" type="Button" parent="Root/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Settings"
+text = "⚙"
 flat = true
 
 [node name="HeadSep" type="HSeparator" parent="Root"]
@@ -95,263 +90,12 @@ layout_mode = 2
 tooltip_text = "Insert the selected node or scene path as @mention."
 text = "@"
 
-[node name="ConnFold" type="FoldableContainer" parent="Root"]
-unique_name_in_owner = true
-layout_mode = 2
-title = "Connection"
-folded = true
-
-[node name="ConnInner" type="VBoxContainer" parent="Root/ConnFold"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="SettingsGrid" type="GridContainer" parent="Root/ConnFold/ConnInner"]
-layout_mode = 2
-columns = 2
-theme_override_constants/h_separation = 8
-theme_override_constants/v_separation = 4
-
-[node name="PLabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-layout_mode = 2
-text = "Provider"
-
-[node name="ProviderOption" type="OptionButton" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-fit_to_longest_item = false
-
-[node name="ULabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Base URL"
-
-[node name="BaseUrlEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-placeholder_text = "http://127.0.0.1:11434/v1"
-
-[node name="MLabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-layout_mode = 2
-text = "Model"
-
-[node name="ModelEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-placeholder_text = "model id"
-
-[node name="KLabel" type="Label" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "API key"
-
-[node name="KeyEdit" type="LineEdit" parent="Root/ConnFold/ConnInner/SettingsGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-secret = true
-placeholder_text = "user:// secrets"
-
-[node name="SaveRow" type="HBoxContainer" parent="Root/ConnFold/ConnInner"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="TestConnection" type="Button" parent="Root/ConnFold/ConnInner/SaveRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-tooltip_text = "Load the model with the current context and keep-alive."
-text = "Test"
-
-[node name="ListModels" type="Button" parent="Root/ConnFold/ConnInner/SaveRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-tooltip_text = "Ask the runtime for installed model ids."
-text = "Models"
-
-[node name="SaveSettings" type="Button" parent="Root/ConnFold/ConnInner/SaveRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Save"
-
-[node name="AdvFold" type="FoldableContainer" parent="Root"]
-unique_name_in_owner = true
-layout_mode = 2
-title = "Model & extras"
-folded = true
-
-[node name="AdvInner" type="VBoxContainer" parent="Root/AdvFold"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="AdvGrid" type="GridContainer" parent="Root/AdvFold/AdvInner"]
-layout_mode = 2
-columns = 2
-theme_override_constants/h_separation = 8
-theme_override_constants/v_separation = 4
-
-[node name="CtxLabel" type="Label" parent="Root/AdvFold/AdvInner/AdvGrid"]
-layout_mode = 2
-text = "Context"
-
-[node name="CtxEdit" type="LineEdit" parent="Root/AdvFold/AdvInner/AdvGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-placeholder_text = "65536"
-tooltip_text = "Sent as options.num_ctx on Ollama /api/chat."
-
-[node name="KeepLabel" type="Label" parent="Root/AdvFold/AdvInner/AdvGrid"]
-layout_mode = 2
-text = "Keep alive"
-
-[node name="KeepEdit" type="LineEdit" parent="Root/AdvFold/AdvInner/AdvGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-placeholder_text = "-1"
-tooltip_text = "Sent as keep_alive. -1 keeps the model loaded."
-
-[node name="TempLabel" type="Label" parent="Root/AdvFold/AdvInner/AdvGrid"]
-layout_mode = 2
-text = "Temperature"
-
-[node name="TempEdit" type="LineEdit" parent="Root/AdvFold/AdvInner/AdvGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-placeholder_text = "0.2"
-tooltip_text = "Sent as options.temperature."
-
-[node name="MaxLabel" type="Label" parent="Root/AdvFold/AdvInner/AdvGrid"]
-layout_mode = 2
-text = "Max tokens"
-
-[node name="MaxEdit" type="LineEdit" parent="Root/AdvFold/AdvInner/AdvGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-placeholder_text = "4096"
-tooltip_text = "Sent as options.num_predict / max_tokens."
-
-[node name="ILabel" type="Label" parent="Root/AdvFold/AdvInner/AdvGrid"]
-layout_mode = 2
-text = "Image URL"
-
-[node name="ImageUrlEdit" type="LineEdit" parent="Root/AdvFold/AdvInner/AdvGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-placeholder_text = "optional /v1 images"
-
-[node name="PortLabel" type="Label" parent="Root/AdvFold/AdvInner/AdvGrid"]
-layout_mode = 2
-text = "MCP port"
-
-[node name="McpPortEdit" type="LineEdit" parent="Root/AdvFold/AdvInner/AdvGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-placeholder_text = "8765"
-
-[node name="FlagsRow" type="HFlowContainer" parent="Root/AdvFold/AdvInner"]
-layout_mode = 2
-theme_override_constants/h_separation = 10
-theme_override_constants/v_separation = 2
-
-[node name="PlanCheck" type="CheckBox" parent="Root/AdvFold/AdvInner/FlagsRow"]
-unique_name_in_owner = true
-layout_mode = 2
-tooltip_text = "Write tools wait until you approve a plan."
-text = "Plan"
-
-[node name="McpCheck" type="CheckBox" parent="Root/AdvFold/AdvInner/FlagsRow"]
-unique_name_in_owner = true
-layout_mode = 2
-tooltip_text = "JSON-RPC on 127.0.0.1 only."
-text = "MCP"
-
-[node name="CompactCheck" type="CheckBox" parent="Root/AdvFold/AdvInner/FlagsRow"]
-unique_name_in_owner = true
-layout_mode = 2
-tooltip_text = "Local models get the core tool set only."
-text = "Compact"
-
-[node name="ThinkCheck" type="CheckBox" parent="Root/AdvFold/AdvInner/FlagsRow"]
-unique_name_in_owner = true
-layout_mode = 2
-tooltip_text = "Sent as think on Ollama /api/chat."
-text = "Think"
-
-[node name="CliStatus" type="Label" parent="Root/AdvFold/AdvInner"]
-unique_name_in_owner = true
-layout_mode = 2
-autowrap_mode = 3
-text = "CLI: Scan for Codex, Claude Code, or Gemini sessions."
-
-[node name="CliRow" type="HFlowContainer" parent="Root/AdvFold/AdvInner"]
-layout_mode = 2
-theme_override_constants/h_separation = 6
-theme_override_constants/v_separation = 4
-
-[node name="ScanCli" type="Button" parent="Root/AdvFold/AdvInner/CliRow"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Scan"
-
-[node name="LoginCodex" type="Button" parent="Root/AdvFold/AdvInner/CliRow"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Login Codex"
-
-[node name="LoginClaude" type="Button" parent="Root/AdvFold/AdvInner/CliRow"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Login Claude"
-
-[node name="LoginGemini" type="Button" parent="Root/AdvFold/AdvInner/CliRow"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Login Gemini"
-
-[node name="UseCodex" type="Button" parent="Root/AdvFold/AdvInner/CliRow"]
-unique_name_in_owner = true
-layout_mode = 2
-disabled = true
-text = "Use Codex"
-
-[node name="UseClaude" type="Button" parent="Root/AdvFold/AdvInner/CliRow"]
-unique_name_in_owner = true
-layout_mode = 2
-disabled = true
-text = "Use Claude"
-
-[node name="UseGemini" type="Button" parent="Root/AdvFold/AdvInner/CliRow"]
-unique_name_in_owner = true
-layout_mode = 2
-disabled = true
-text = "Use Gemini"
-
-[node name="ChatFold" type="FoldableContainer" parent="Root"]
-unique_name_in_owner = true
-layout_mode = 2
-title = "Chats"
-folded = true
-
-[node name="ChatInner" type="VBoxContainer" parent="Root/ChatFold"]
-layout_mode = 2
-theme_override_constants/separation = 4
-
-[node name="ChatSearch" type="LineEdit" parent="Root/ChatFold/ChatInner"]
-unique_name_in_owner = true
-layout_mode = 2
-placeholder_text = "Search chats"
-
-[node name="ChatList" type="ItemList" parent="Root/ChatFold/ChatInner"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 96)
-layout_mode = 2
-max_text_lines = 1
-
 [node name="Transcript" type="RichTextLabel" parent="Root"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 180)
 bbcode_enabled = true
 scroll_following = true
 selection_enabled = true
@@ -415,13 +159,51 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="Composer" type="TextEdit" parent="Root"]
+[node name="ComposerBlock" type="VBoxContainer" parent="Root"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
-placeholder_text = "Describe the change. Ctrl+Enter sends. @file or drop a path."
+theme_override_constants/separation = 4
+
+[node name="Composer" type="TextEdit" parent="Root/ComposerBlock"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Ask Lumen… Enter sends · Shift+Enter new line · @ for files"
+tooltip_text = "Enter sends. Shift+Enter inserts a new line. Ctrl+Enter also sends."
 wrap_mode = 1
 scroll_fit_content_height = false
+
+[node name="ComposerRow" type="HBoxContainer" parent="Root/ComposerBlock"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ModelPickerButton" type="Button" parent="Root/ComposerBlock/ComposerRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+flat = true
+clip_text = true
+text = "Model"
+tooltip_text = "Choose model. Type to search. Custom ids: Settings → Models."
+alignment = 0
+
+[node name="ModelOption" type="OptionButton" parent="Root/ComposerBlock/ComposerRow"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+fit_to_longest_item = false
+clip_text = true
+tooltip_text = "Select a scanned model. Open Settings → Models for custom ids and refresh."
+
+[node name="SendButton" type="Button" parent="Root/ComposerBlock/ComposerRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 0
+flat = true
+tooltip_text = "Enter sends · Ctrl+Enter also sends"
+text = "↑"
 
 [node name="Footer" type="HBoxContainer" parent="Root"]
 layout_mode = 2
@@ -442,8 +224,406 @@ disabled = true
 tooltip_text = "Stop the current turn."
 text = "Stop"
 
-[node name="SendButton" type="Button" parent="Root/Footer"]
+[node name="SettingsWindow" type="Window" parent="."]
+unique_name_in_owner = true
+title = "Lumen Settings"
+initial_position = 2
+size = Vector2i(520, 560)
+visible = false
+transient = true
+exclusive = true
+unresizable = false
+min_size = Vector2i(420, 420)
+
+[node name="SettingsRoot" type="MarginContainer" parent="SettingsWindow"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="SettingsBody" type="VBoxContainer" parent="SettingsWindow/SettingsRoot"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="SettingsTabs" type="TabContainer" parent="SettingsWindow/SettingsRoot/SettingsBody"]
 unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "Ctrl+Enter"
-text = "Send"
+size_flags_horizontal = 3
+size_flags_vertical = 3
+current_tab = 0
+
+[node name="Connection" type="VBoxContainer" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SettingsGrid" type="GridContainer" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Connection"]
+layout_mode = 2
+columns = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 6
+
+[node name="PLabel" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Connection/SettingsGrid"]
+layout_mode = 2
+text = "Provider"
+
+[node name="ProviderOption" type="OptionButton" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Connection/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+fit_to_longest_item = false
+
+[node name="ULabel" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Connection/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Base URL"
+
+[node name="BaseUrlEdit" type="LineEdit" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Connection/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "http://127.0.0.1:11434/v1"
+
+[node name="KLabel" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Connection/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "API key"
+
+[node name="KeyEdit" type="LineEdit" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Connection/SettingsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+secret = true
+placeholder_text = "user:// secrets"
+
+[node name="ConnHint" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Connection"]
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 11
+text = "Pick models from the composer dropdown after scanning. Save writes provider and secrets."
+
+[node name="SaveRow" type="HBoxContainer" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Connection"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TestConnection" type="Button" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Connection/SaveRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Load the model with the current context and keep-alive."
+text = "Test"
+
+[node name="SaveSettings" type="Button" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Connection/SaveRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Save"
+
+[node name="Models" type="VBoxContainer" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ModelsHint" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Models"]
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 11
+text = "Composer shows the active model. Scan refreshes the list without auto-switching. Custom ids use the field below."
+
+[node name="ModelsGrid" type="GridContainer" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Models"]
+layout_mode = 2
+columns = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 6
+
+[node name="SettingsModelLabel" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Models/ModelsGrid"]
+layout_mode = 2
+text = "Model"
+
+[node name="SettingsModelOption" type="OptionButton" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Models/ModelsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+fit_to_longest_item = false
+tooltip_text = "Same catalog as the composer picker."
+
+[node name="CustomLabel" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Models/ModelsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Custom"
+
+[node name="ModelEdit" type="LineEdit" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Models/ModelsGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "custom model id"
+tooltip_text = "Fallback when the model is not in the scanned list."
+
+[node name="ModelsRow" type="HBoxContainer" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Models"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ListModels" type="Button" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Models/ModelsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Ask the runtime for installed model ids."
+text = "List models"
+
+[node name="Advanced" type="VBoxContainer" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="AdvGrid" type="GridContainer" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced"]
+layout_mode = 2
+columns = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 6
+
+[node name="CtxLabel" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/AdvGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Context"
+
+[node name="CtxEdit" type="LineEdit" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/AdvGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "131072"
+tooltip_text = "Sent as options.num_ctx on Ollama /api/chat. Qwen 3.6/3.8 27B native is 262144."
+
+[node name="KeepLabel" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/AdvGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Keep alive"
+
+[node name="KeepEdit" type="LineEdit" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/AdvGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "-1"
+tooltip_text = "Sent as keep_alive. -1 keeps the model loaded."
+
+[node name="TempLabel" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/AdvGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Temperature"
+
+[node name="TempEdit" type="LineEdit" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/AdvGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "0.2"
+tooltip_text = "Sent as options.temperature."
+
+[node name="MaxLabel" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/AdvGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Max tokens"
+
+[node name="MaxEdit" type="LineEdit" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/AdvGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "32768"
+tooltip_text = "Sent as options.num_predict / max_tokens."
+
+[node name="PortLabel" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/AdvGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "MCP port"
+
+[node name="McpPortEdit" type="LineEdit" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/AdvGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "8765"
+
+[node name="FlagsRow" type="HFlowContainer" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced"]
+layout_mode = 2
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 2
+
+[node name="PlanCheck" type="CheckBox" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/FlagsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Write tools wait until you approve a plan."
+text = "Plan"
+
+[node name="McpCheck" type="CheckBox" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/FlagsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "JSON-RPC on 127.0.0.1 only."
+text = "MCP"
+
+[node name="CompactCheck" type="CheckBox" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/FlagsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Local models get the core tool set only."
+text = "Compact"
+
+[node name="ThinkCheck" type="CheckBox" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/FlagsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Sent as think on Ollama /api/chat."
+text = "Think"
+
+[node name="CliStatus" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+text = "CLI: Scan for Codex, Claude Code, or Gemini sessions."
+
+[node name="CliRow" type="HFlowContainer" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced"]
+layout_mode = 2
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 4
+
+[node name="ScanCli" type="Button" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/CliRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Scan"
+
+[node name="LoginCodex" type="Button" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/CliRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Login Codex"
+
+[node name="LoginClaude" type="Button" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/CliRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Login Claude"
+
+[node name="LoginGemini" type="Button" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/CliRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Login Gemini"
+
+[node name="UseCodex" type="Button" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/CliRow"]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+text = "Use Codex"
+
+[node name="UseClaude" type="Button" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/CliRow"]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+text = "Use Claude"
+
+[node name="UseGemini" type="Button" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Advanced/CliRow"]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+text = "Use Gemini"
+
+[node name="Assets" type="VBoxContainer" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="AssetHint" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Assets"]
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 11
+text = "Optional. Empty keys = no sprite / text-to-3D."
+
+[node name="AssetGrid" type="GridContainer" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Assets"]
+layout_mode = 2
+columns = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 6
+
+[node name="ILabel" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Assets/AssetGrid"]
+layout_mode = 2
+text = "Image URL"
+
+[node name="ImageUrlEdit" type="LineEdit" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Assets/AssetGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "empty = Retro Diffusion"
+
+[node name="IkLabel" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Assets/AssetGrid"]
+layout_mode = 2
+text = "Image key"
+
+[node name="ImageKeyEdit" type="LineEdit" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Assets/AssetGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+secret = true
+placeholder_text = "Retro / OpenAI image key"
+
+[node name="MLabel" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Assets/AssetGrid"]
+layout_mode = 2
+text = "Mesh URL"
+
+[node name="MeshUrlEdit" type="LineEdit" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Assets/AssetGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "https://api.meshy.ai"
+
+[node name="MkLabel" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Assets/AssetGrid"]
+layout_mode = 2
+text = "Mesh key"
+
+[node name="MeshKeyEdit" type="LineEdit" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Assets/AssetGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+secret = true
+placeholder_text = "Meshy API key"
+
+[node name="Chats" type="VBoxContainer" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ChatSearch" type="LineEdit" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Chats"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Search chats"
+
+[node name="ChatList" type="ItemList" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Chats"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 220)
+layout_mode = 2
+size_flags_vertical = 3
+max_text_lines = 1
+
+[node name="ChatHint" type="Label" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsTabs/Chats"]
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 11
+text = "Delete: select a chat and press Delete / Backspace."
+
+[node name="SettingsFooter" type="HBoxContainer" parent="SettingsWindow/SettingsRoot/SettingsBody"]
+layout_mode = 2
+alignment = 2
+theme_override_constants/separation = 8
+
+[node name="CloseSettings" type="Button" parent="SettingsWindow/SettingsRoot/SettingsBody/SettingsFooter"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"
+
+[node name="ModelPopup" type="PopupPanel" parent="."]
+unique_name_in_owner = true
+visible = false
+unresizable = false
+
+[node name="ModelPopupInner" type="VBoxContainer" parent="ModelPopup"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 288.0
+offset_bottom = 288.0
+theme_override_constants/separation = 6
+
+[node name="ModelSearch" type="LineEdit" parent="ModelPopup/ModelPopupInner"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Search models"
+
+[node name="ModelList" type="ItemList" parent="ModelPopup/ModelPopupInner"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(260, 240)
+layout_mode = 2
+size_flags_vertical = 3
+max_text_lines = 1

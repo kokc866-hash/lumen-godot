@@ -63,9 +63,15 @@ func _process(_delta: float) -> void:
 
 
 func _handle(tcp: StreamPeerTCP, raw: String) -> void:
-	var split := raw.split("\r\n\r\n", true, 1)
-	var body := split[1] if split.size() > 1 else raw
-	var parsed: Variant = JSON.parse_string(body)
+	var body := raw
+	if raw.begins_with("POST ") or raw.begins_with("GET ") or raw.find("\r\n\r\n") >= 0:
+		var split := raw.split("\r\n\r\n", true, 1)
+		body = split[1] if split.size() > 1 else raw
+	var parsed: Variant = JSON.parse_string(body.strip_edges())
+	_reply(tcp, parsed)
+
+
+func _reply(tcp: StreamPeerTCP, parsed: Variant) -> void:
 	var response: Dictionary
 	if typeof(parsed) != TYPE_DICTIONARY:
 		response = _rpc_error(null, -32700, "Parse error")

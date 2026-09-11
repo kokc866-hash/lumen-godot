@@ -92,7 +92,7 @@ func _which(bin: String) -> bool:
 		var candidate := folder.path_join(bin)
 		if FileAccess.file_exists(candidate) or FileAccess.file_exists(candidate + ".exe") or FileAccess.file_exists(candidate + ".cmd"):
 			return true
-	return OS.execute(bin, ["--version"], [], false, false) == 0
+	return false
 
 
 func _open_terminal(command: String) -> Error:
@@ -244,6 +244,80 @@ func load_claude_token() -> Dictionary:
 		"expires_at": oauth.get("expiresAt", 0),
 	}
 
+
+
+
+## Sync discovery via official CLI. Returns { ok, names: PackedStringArray, error?, seed_fallback? }.
+func list_codex_models() -> Dictionary:
+	if not _which("codex"):
+		return {"ok": false, "names": PackedStringArray(), "error": "codex CLI not on PATH", "seed_fallback": true}
+	var attempts: Array = [
+		PackedStringArray(["debug", "models"]),
+		PackedStringArray(["--bundled", "debug", "models"]),
+	]
+	var last_err := "codex debug models failed"
+	for args in attempts:
+		var output: Array = []
+		var code := OS.execute("codex", args, output, true, false)
+		var chunks := PackedStringArray()
+		for line in output:
+			chunks.append(str(line))
+		var text := "\n".join(chunks)
+		var names := _parse_model_list_text(text)
+		if not names.is_empty():
+			return {"ok": true, "names": names, "seed_fallback": false}
+		if code != 0:
+			last_err = "codex debug models failed (%d): %s" % [code, LumenJson.clamp_text(text, 300)]
+		else:
+			last_err = "codex returned no models"
+	return {"ok": false, "names": PackedStringArray(), "error": last_err, "seed_fallback": true}
+
+
+func _parse_model_list_text(text: String) -> PackedStringArray:
+	var out := PackedStringArray()
+	var stripped := text.strip_edges()
+	if stripped == "":
+		return out
+	# Prefer JSON (array or {data|models:[...]})
+	var parsed: Variant = JSON.parse_string(stripped)
+	if typeof(parsed) == TYPE_DICTIONARY:
+		var rows: Variant = parsed.get("data", parsed.get("models", parsed.get("items", [])))
+		if typeof(rows) == TYPE_ARRAY:
+			for row in rows:
+				var id := ""
+				if typeof(row) == TYPE_DICTIONARY:
+					id = str(row.get("slug", row.get("id", row.get("name", row.get("model", "")))))
+				else:
+					id = str(row)
+				id = id.strip_edges()
+				if id != "" and out.find(id) < 0:
+					out.append(id)
+			return out
+	if typeof(parsed) == TYPE_ARRAY:
+		for row in parsed:
+			var id := ""
+			if typeof(row) == TYPE_DICTIONARY:
+				id = str(row.get("slug", row.get("id", row.get("name", ""))))
+			else:
+				id = str(row)
+			id = id.strip_edges()
+			if id != "" and out.find(id) < 0:
+				out.append(id)
+		return out
+	# Line / whitespace tokens that look like model ids
+	for line in text.split("\n"):
+		var s := line.strip_edges()
+		if s == "" or s.begins_with("#") or s.begins_with("["):
+			continue
+		# Drop common log prefixes
+		if s.to_lower().begins_with("error") or s.to_lower().begins_with("warn"):
+			continue
+		# Take first token if tabular
+		var token := s.split("\t")[0].split(" ")[0].strip_edges()
+		if token.find("/") >= 0 or token.find("-") >= 0 or token.find(".") >= 0:
+			if token.length() >= 3 and out.find(token) < 0:
+				out.append(token)
+	return out
 
 func _codex_auth_path() -> String:
 	var custom := OS.get_environment("CODEX_HOME")
