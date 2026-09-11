@@ -20,6 +20,7 @@ var codex: LumenCodexSubscription
 var gemini: LumenGemini
 var loop: LumenAgentLoop
 var mcp: LumenMcpServer
+var discovery: LumenModelDiscovery
 var _debugger: EditorDebuggerPlugin
 
 
@@ -77,8 +78,12 @@ func _enter_tree() -> void:
 	dock.test_pressed.connect(_on_test_connection)
 	dock.stop_pressed.connect(_on_stop)
 	dock.models_pressed.connect(_on_list_models)
-	if not openai.models_listed.is_connected(_on_models_listed):
-		openai.models_listed.connect(_on_models_listed)
+	discovery = LumenModelDiscovery.new()
+	discovery.setup(settings, cli_auth, openai, anthropic, gemini, log)
+	if not discovery.models_listed.is_connected(_on_models_listed):
+		discovery.models_listed.connect(_on_models_listed)
+	if not discovery.failed.is_connected(_on_models_failed):
+		discovery.failed.connect(_on_models_failed)
 	loop.status.connect(dock.set_status)
 	loop.assistant_delta.connect(dock.append_assistant)
 	if loop.has_signal("stream_delta"):
@@ -278,24 +283,27 @@ func _on_stop() -> void:
 
 func _on_list_models() -> void:
 	var pid := settings.provider_id()
-	if pid.ends_with("_cli"):
-		var names := settings.catalog(pid)
-		if names.is_empty():
-			names = settings.model_catalog(pid)
-		dock.set_status("Idle")
-		dock.apply_models(names)
-		return
-	var url := settings.base_url().strip_edges()
-	if url == "":
-		dock.append_system("Set a Base URL first.")
+	if pid == "":
+		dock.append_system("Choose a provider first.")
 		return
 	dock.set_status("Listing models…")
-	openai.list_models(url, settings.api_key())
+	discovery.list_models(pid)
 
 
 func _on_models_listed(names: PackedStringArray) -> void:
 	dock.set_status("Idle")
 	dock.apply_models(names)
+
+
+func _on_models_failed(message: String) -> void:
+	var pid := settings.provider_id()
+	var fallback := discovery.fallback_catalog(pid) if discovery else PackedStringArray()
+	dock.set_status("Idle")
+	if not fallback.is_empty():
+		dock.apply_models(fallback)
+		dock.append_system("Model discovery failed: %s — showing seed/saved catalog (%d)." % [message, fallback.size()])
+	else:
+		dock.append_system("Model discovery failed: %s" % message)
 
 
 func _chat_meta() -> Dictionary:
@@ -414,7 +422,7 @@ func _on_cli_use(kind: String) -> void:
 	if mid == "":
 		mid = default_mid
 	settings.switch_model(pid, mid)
-	# Prefill catalog so ModelOption is usable without an extra Scan.
+	# Seed fallback only — live List Models refreshes the real catalog.
 	var names := settings.catalog(pid)
 	if not names.is_empty():
 		settings.set_model_catalog(names, pid)
