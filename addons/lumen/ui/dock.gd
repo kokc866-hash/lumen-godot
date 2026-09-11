@@ -34,6 +34,7 @@ const PROVIDERS := [
 @onready var status_label: Label = %Status
 @onready var model_edit: LineEdit = %ModelEdit
 @onready var model_option: OptionButton = %ModelOption
+@onready var model_picker: Button = get_node_or_null("%ModelPickerButton")
 @onready var provider_option: OptionButton = %ProviderOption
 @onready var base_url_edit: LineEdit = %BaseUrlEdit
 @onready var key_edit: LineEdit = %KeyEdit
@@ -131,18 +132,25 @@ func _ready() -> void:
 		%ThinkCheck.toggled.connect(func(_on): _save_fields(false))
 	composer.gui_input.connect(_on_composer_input)
 	composer.text_changed.connect(_on_composer_text)
-	if has_node("%ModelChipWrap"):
-		%ModelChipWrap.gui_input.connect(_on_model_chip_gui)
-	if has_node("%ModelChip"):
-		%ModelChip.gui_input.connect(_on_model_chip_gui)
-		%ModelChip.mouse_filter = Control.MOUSE_FILTER_STOP
-	if has_node("%ConnChipWrap"):
-		%ConnChipWrap.gui_input.connect(_on_model_chip_gui)
-		%ConnChipWrap.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	if has_node("%ConnChip"):
-		%ConnChip.gui_input.connect(_on_model_chip_gui)
-		%ConnChip.mouse_filter = Control.MOUSE_FILTER_STOP
-		%ConnChip.tooltip_text = "Open Connection"
+	if has_node("%SettingsModelOption"):
+		%SettingsModelOption.item_selected.connect(_on_model_option)
+	if has_node("%ModelPickerButton"):
+		%ModelPickerButton.pressed.connect(_open_model_popup)
+	if has_node("%ModelSearch"):
+		%ModelSearch.text_changed.connect(_filter_model_popup)
+		%ModelSearch.text_submitted.connect(func(_t): _confirm_model_popup())
+	if has_node("%ModelList"):
+		%ModelList.item_activated.connect(func(_i): _confirm_model_popup())
+		%ModelList.item_selected.connect(func(_i): pass)
+	_apply_settings_tab_icons()
+	if has_node("%SettingsButton"):
+		%SettingsButton.pressed.connect(func(): open_settings(0))
+	if has_node("%HistoryButton"):
+		%HistoryButton.pressed.connect(func(): open_settings(4))
+	if has_node("%CloseSettings"):
+		%CloseSettings.pressed.connect(close_settings)
+	if has_node("%SettingsWindow"):
+		%SettingsWindow.close_requested.connect(close_settings)
 	_mention = PopupMenu.new()
 	add_child(_mention)
 	_mention.id_pressed.connect(_on_mention_pick)
@@ -156,9 +164,7 @@ func _ready() -> void:
 		%ChatList.item_selected.connect(_on_chat_selected)
 		%ChatList.gui_input.connect(_on_chat_list_input)
 	_show_empty_state()
-	_layout_transcript_first()
-	_bind_fold_accordion()
-	_collapse_chrome_folds()
+	_layout_chat_surface()
 	_apply_chrome()
 
 
@@ -195,27 +201,35 @@ func _apply_chrome() -> void:
 	if has_node("%Title"):
 		%Title.add_theme_color_override("font_color", accent)
 		%Title.add_theme_font_size_override("font_size", 14)
-	if has_node("%ModelChip"):
-		%ModelChip.add_theme_color_override("font_color", muted)
-		%ModelChip.add_theme_font_size_override("font_size", 11)
-	if has_node("%ConnChip"):
-		%ConnChip.add_theme_color_override("font_color", muted)
-		%ConnChip.add_theme_font_size_override("font_size", 11)
-	if has_node("%ModelChipWrap"):
-		%ModelChipWrap.add_theme_stylebox_override("panel", _pill(chip_bg))
-	if has_node("%ConnChipWrap"):
-		%ConnChipWrap.add_theme_stylebox_override("panel", _pill(chip_bg))
 	if has_node("%ContextLabel"):
 		%ContextLabel.add_theme_color_override("font_color", muted)
 	if transcript:
-		transcript.add_theme_stylebox_override("normal", _pill(inset, 8, 8, 6))
+		transcript.add_theme_stylebox_override("normal", _pill(inset, 10, 10, 8))
 		transcript.add_theme_color_override("default_color", font)
 		transcript.add_theme_font_size_override("normal_font_size", 13)
+		transcript.add_theme_constant_override("line_separation", 4)
 	if composer:
-		composer.add_theme_stylebox_override("normal", _pill(inset, 8, 6, 6))
-		composer.add_theme_stylebox_override("focus", _pill(inset.lerp(accent, 0.08), 8, 6, 6))
+		composer.add_theme_stylebox_override("normal", _pill(inset, 10, 8, 8))
+		composer.add_theme_stylebox_override("focus", _pill(inset.lerp(accent, 0.10), 10, 8, 8))
 		composer.add_theme_color_override("font_color", font)
 		composer.add_theme_color_override("font_placeholder_color", muted)
+	if model_option:
+		model_option.add_theme_font_size_override("font_size", 12)
+	if has_node("%ModelPickerButton"):
+		%ModelPickerButton.flat = true
+		%ModelPickerButton.add_theme_font_size_override("font_size", 12)
+		%ModelPickerButton.add_theme_color_override("font_color", muted)
+		%ModelPickerButton.add_theme_color_override("font_hover_color", accent)
+	if has_node("%SettingsButton"):
+		%SettingsButton.text = "⚙"
+		%SettingsButton.flat = true
+		%SettingsButton.tooltip_text = "Settings"
+		%SettingsButton.add_theme_font_size_override("font_size", 16)
+	if has_node("%HistoryButton"):
+		%HistoryButton.text = "☰"
+		%HistoryButton.flat = true
+		%HistoryButton.tooltip_text = "Chat history"
+		%HistoryButton.add_theme_font_size_override("font_size", 14)
 	if status_label:
 		status_label.add_theme_color_override("font_color", muted)
 		status_label.add_theme_font_size_override("font_size", 11)
@@ -300,9 +314,6 @@ func _load_fields() -> void:
 		%ThinkCheck.set_pressed_no_signal(bool(settings.get_value("think", false)))
 	_apply_provider_visibility()
 	_refresh_conn_chip()
-	# C1: folds stay collapsed; ModelChip / explicit actions open on demand.
-	if has_node("%ConnFold"):
-		%ConnFold.folded = true
 
 
 func _load_binding_fields() -> void:
@@ -383,12 +394,7 @@ func _save_fields(announce: bool = true) -> void:
 	_refresh_conn_chip()
 	if announce:
 		set_status("Connection saved.")
-		if has_node("%ConnFold") and _provider_id() != "":
-			%ConnFold.folded = true
-		if has_node("%AdvFold"):
-			%AdvFold.folded = true
-		if has_node("%AssetFold"):
-			%AssetFold.folded = true
+		close_settings()
 
 
 func _on_provider(index: int) -> void:
@@ -412,37 +418,33 @@ func _on_provider(index: int) -> void:
 	_load_fields()
 	_apply_provider_visibility()
 	_refresh_conn_chip()
-	if has_node("%ConnFold"):
-		%ConnFold.folded = false
+	open_settings(0)
 
 
 func _refresh_conn_chip() -> void:
-	if not has_node("%ConnChip"):
-		return
-	var id := _provider_id()
-	var label := id
-	for row in PROVIDERS:
-		if str(row["id"]) == id:
-			label = str(row["label"])
-			break
-	%ConnChip.text = label
-	%ConnChip.tooltip_text = ("Open Connection — %s" % label) if label != "" else "Open Connection"
-	if has_node("%ConnChipWrap"):
-		%ConnChipWrap.visible = label != ""
-		%ConnChipWrap.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	if has_node("%ConnFold"):
-		%ConnFold.title = "Connection" if label == "" else "Connection  ·  %s" % label
-	if has_node("%ModelChip"):
-		var model := settings.model() if settings else (model_edit.text.strip_edges() if model_edit else "")
-		%ModelChip.text = model
-		%ModelChip.tooltip_text = ("Open Connection — %s" % model) if model != "" else "Open Connection / set model"
-		if has_node("%ModelChipWrap"):
-			%ModelChipWrap.visible = model != ""
+	## Header no longer shows chips; keep composer/settings model pickers in sync.
+	var model := settings.model() if settings else (model_edit.text.strip_edges() if model_edit else "")
+	if has_node("%SettingsButton"):
+		var id := _provider_id()
+		var label := id
+		for row in PROVIDERS:
+			if str(row["id"]) == id:
+				label = str(row["label"])
+				break
+		var tip := "Settings"
+		if label != "":
+			tip = "Settings — %s" % label
+			if model != "":
+				tip = "Settings — %s · %s" % [label, model]
+		%SettingsButton.tooltip_text = tip
+	if has_node("%Title") and model != "":
+		%Title.tooltip_text = model
+	_sync_model_picker_label(model)
 
 
 
-func _layout_transcript_first() -> void:
-	## Header/Context → Transcript (+ transient boxes) → Composer/Footer → Folds.
+func _layout_chat_surface() -> void:
+	## Header → Transcript (+ transient) → Composer → Footer. No fold chrome.
 	var root := get_node_or_null("Root") as VBoxContainer
 	if root == null or transcript == null:
 		return
@@ -452,57 +454,44 @@ func _layout_transcript_first() -> void:
 		if n:
 			order.append(n)
 	order.append(transcript)
-	for path in ["TodoBox", "PlanBox", "ToolBox", "ComposerRow", "Footer", "ChatFold", "ConnFold", "AdvFold", "AssetFold"]:
+	for path in ["TodoBox", "PlanBox", "ToolBox", "ComposerBlock", "ComposerRow", "Footer"]:
 		var n2 := root.get_node_or_null(path)
-		if n2:
+		if n2 and n2 not in order:
 			order.append(n2)
 	for i in order.size():
 		root.move_child(order[i], i)
 	transcript.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	transcript.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	transcript.custom_minimum_size = Vector2(0, 160)
+	transcript.custom_minimum_size = Vector2(0, 180)
 
 
-func _collapse_chrome_folds() -> void:
-	for path in ["%ChatFold", "%ConnFold", "%AdvFold", "%AssetFold"]:
-		if has_node(path):
-			get_node(path).folded = true
-
-
-func _bind_fold_accordion() -> void:
-	for path in ["%ChatFold", "%ConnFold", "%AdvFold", "%AssetFold"]:
-		if not has_node(path):
-			continue
-		var fold: FoldableContainer = get_node(path)
-		if not fold.folding_changed.is_connected(_on_chrome_fold_changed):
-			fold.folding_changed.connect(_on_chrome_fold_changed.bind(fold))
-
-
-func _on_chrome_fold_changed(is_folded: bool, source: FoldableContainer) -> void:
-	## Max one chrome fold open (Transcript stays the focus surface).
-	if is_folded:
+func open_settings(tab: int = 0) -> void:
+	if not has_node("%SettingsWindow"):
 		return
-	for path in ["%ChatFold", "%ConnFold", "%AdvFold", "%AssetFold"]:
-		if not has_node(path):
-			continue
-		var fold: FoldableContainer = get_node(path)
-		if fold != source and not fold.folded:
-			fold.folded = true
+	if has_node("%SettingsTabs"):
+		var tabs: TabContainer = %SettingsTabs
+		tab = clampi(tab, 0, max(tabs.get_tab_count() - 1, 0))
+		tabs.current_tab = tab
+	var win: Window = %SettingsWindow
+	win.transient = true
+	win.exclusive = true
+	if not win.visible:
+		win.popup_centered(Vector2i(520, 560))
+	else:
+		win.grab_focus()
+	if tab == 1 and has_node("%SettingsModelOption"):
+		%SettingsModelOption.grab_focus()
+	elif tab == 0 and provider_option:
+		provider_option.grab_focus()
+	elif tab == 4 and has_node("%ChatSearch"):
+		%ChatSearch.grab_focus()
 
 
-func _on_model_chip_gui(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_open_connection_fold()
-		accept_event()
-
-
-func _open_connection_fold() -> void:
-	if has_node("%ConnFold"):
-		%ConnFold.folded = false
-	if has_node("%ModelOption") and model_option:
-		model_option.grab_focus()
-	elif model_edit and model_edit.visible:
-		model_edit.grab_focus()
+func close_settings() -> void:
+	if has_node("%SettingsWindow") and %SettingsWindow.visible:
+		%SettingsWindow.hide()
+	if composer:
+		composer.grab_focus()
 
 
 func _apply_provider_visibility() -> void:
@@ -529,9 +518,6 @@ func _apply_provider_visibility() -> void:
 		%ListModels.visible = bool(cap.get("list_models", true))
 	if has_node("%TestConnection"):
 		%TestConnection.visible = bool(cap.get("warmup", true))
-	if has_node("%AdvFold"):
-		# C2: one settings narrative — ConnFold = connection/model; Adv = Advanced only.
-		%AdvFold.title = "Advanced"
 	if kind == "subscription":
 		base_url_edit.placeholder_text = "uses CLI session"
 		key_edit.placeholder_text = "not used"
@@ -570,7 +556,7 @@ func apply_models(names: PackedStringArray) -> void:
 		settings.set_model_catalog(names)
 	_fill_model_option(names, settings.model() if settings else _active_model_id())
 	_refresh_conn_chip()
-	append_system("Models refreshed (%d). Select one in Connection." % names.size())
+	append_system("Models refreshed (%d). Pick one — does not auto-switch." % names.size())
 
 
 func _active_model_id() -> String:
@@ -595,26 +581,36 @@ func _sync_model_ui(mid: String) -> void:
 
 
 func _fill_model_option(names: PackedStringArray, selected: String) -> void:
-	if model_option == null:
+	var targets: Array = []
+	if model_option:
+		targets.append(model_option)
+	if has_node("%SettingsModelOption"):
+		targets.append(%SettingsModelOption)
+	if targets.is_empty():
 		if model_edit:
 			model_edit.text = selected
 		return
 	_model_ui_lock = true
-	model_option.clear()
 	var found := -1
-	for i in names.size():
-		var n := str(names[i]).strip_edges()
-		if n == "":
-			continue
-		model_option.add_item(n)
-		model_option.set_item_metadata(model_option.item_count - 1, n)
-		if n == selected:
-			found = model_option.item_count - 1
-	# Custom / not-in-list fallback entry.
-	model_option.add_item("Custom…")
-	model_option.set_item_metadata(model_option.item_count - 1, "__custom__")
+	for opt in targets:
+		var button: OptionButton = opt
+		button.clear()
+		found = -1
+		for i in names.size():
+			var n := str(names[i]).strip_edges()
+			if n == "":
+				continue
+			button.add_item(n)
+			button.set_item_metadata(button.item_count - 1, n)
+			if n == selected:
+				found = button.item_count - 1
+		button.add_item("Custom…")
+		button.set_item_metadata(button.item_count - 1, "__custom__")
+		if found >= 0:
+			button.select(found)
+		else:
+			button.select(button.item_count - 1)
 	if found >= 0:
-		model_option.select(found)
 		if model_edit:
 			model_edit.editable = false
 			model_edit.text = selected
@@ -622,7 +618,6 @@ func _fill_model_option(names: PackedStringArray, selected: String) -> void:
 		if has_node("%CustomLabel"):
 			%CustomLabel.visible = false
 	else:
-		model_option.select(model_option.item_count - 1)
 		if model_edit:
 			model_edit.editable = true
 			model_edit.visible = true
@@ -630,6 +625,133 @@ func _fill_model_option(names: PackedStringArray, selected: String) -> void:
 		if has_node("%CustomLabel"):
 			%CustomLabel.visible = true
 	_model_ui_lock = false
+	_sync_model_picker_label(selected)
+
+
+func _sync_model_picker_label(mid: String = "") -> void:
+	if mid == "":
+		mid = settings.model() if settings else ""
+	if has_node("%ModelPickerButton"):
+		%ModelPickerButton.text = mid if mid != "" else "Model"
+		%ModelPickerButton.tooltip_text = ("Model — %s" % mid) if mid != "" else "Choose model"
+
+
+func _popup_catalog() -> PackedStringArray:
+	if settings:
+		return settings.model_catalog()
+	return PackedStringArray()
+
+
+func _open_model_popup() -> void:
+	if not has_node("%ModelPopup"):
+		open_settings(1)
+		return
+	if has_node("%ModelSearch"):
+		%ModelSearch.text = ""
+	_filter_model_popup("")
+	var btn := %ModelPickerButton if has_node("%ModelPickerButton") else self
+	var rect := Rect2i(btn.get_global_rect())
+	%ModelPopup.size = Vector2i(280, 300)
+	%ModelPopup.popup(Rect2i(rect.position.x, rect.position.y - 304, 280, 300))
+	if has_node("%ModelSearch"):
+		%ModelSearch.grab_focus()
+
+
+func _filter_model_popup(query: String) -> void:
+	if not has_node("%ModelList"):
+		return
+	var q := query.strip_edges().to_lower()
+	var names := _popup_catalog()
+	var current := settings.model() if settings else ""
+	%ModelList.clear()
+	var sel := -1
+	for n in names:
+		var s := str(n).strip_edges()
+		if s == "":
+			continue
+		if q != "" and s.to_lower().find(q) < 0:
+			continue
+		var idx: int = %ModelList.add_item(s)
+		if s == current:
+			sel = idx
+	%ModelList.add_item("Custom…")
+	if sel >= 0:
+		%ModelList.select(sel)
+
+
+func _confirm_model_popup() -> void:
+	if not has_node("%ModelList"):
+		return
+	var items: PackedInt32Array = %ModelList.get_selected_items()
+	if items.is_empty():
+		# typed custom id
+		if has_node("%ModelSearch"):
+			var typed := %ModelSearch.text.strip_edges()
+			if typed != "":
+				if has_node("%ModelPopup"):
+					%ModelPopup.hide()
+				_apply_switch_model(typed)
+		return
+	var label := %ModelList.get_item_text(items[0])
+	if has_node("%ModelPopup"):
+		%ModelPopup.hide()
+	if label == "Custom…":
+		open_settings(1)
+		if model_edit:
+			model_edit.grab_focus()
+		return
+	_apply_switch_model(label)
+
+
+func _tab_icon(kind: String, accent: Color) -> Texture2D:
+	var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var c := Color(accent.r, accent.g, accent.b, 0.95)
+	match kind:
+		"conn":
+			for x in range(4, 12):
+				img.set_pixel(x, 7, c)
+				img.set_pixel(x, 8, c)
+			for y in range(5, 11):
+				img.set_pixel(4, y, c)
+				img.set_pixel(11, y, c)
+		"model":
+			for y in range(3, 13):
+				img.set_pixel(8, y, c)
+			for x in range(4, 12):
+				img.set_pixel(x, 12, c)
+		"adv":
+			for i in range(3):
+				var y := 4 + i * 4
+				for x in range(3, 13):
+					img.set_pixel(x, y, c)
+		"asset":
+			for x in range(3, 13):
+				img.set_pixel(x, 12, c)
+			img.set_pixel(5, 8, c)
+			img.set_pixel(8, 6, c)
+			img.set_pixel(11, 9, c)
+		"chats":
+			for x in range(3, 13):
+				for y in range(4, 11):
+					if x == 3 or x == 12 or y == 4 or y == 10:
+						img.set_pixel(x, y, c)
+	return ImageTexture.create_from_image(img)
+
+
+func _apply_settings_tab_icons() -> void:
+	if not has_node("%SettingsTabs"):
+		return
+	var tabs: TabContainer = %SettingsTabs
+	var accent := _ed_color("accent_color", Color(0.45, 0.72, 0.98))
+	var kinds := ["conn", "model", "adv", "asset", "chats"]
+	var titles := ["", "", "", "", ""]
+	for i in mini(tabs.get_tab_count(), kinds.size()):
+		tabs.set_tab_icon(i, _tab_icon(kinds[i], accent))
+		tabs.set_tab_title(i, " ")
+		var tip := ["Connection", "Models", "Advanced", "Assets", "Chats"][i]
+		if tabs.has_method("set_tab_tooltip"):
+			tabs.set_tab_tooltip(i, tip)
 
 
 func _on_model_option(index: int) -> void:
@@ -642,6 +764,9 @@ func _on_model_option(index: int) -> void:
 			model_edit.editable = true
 		if has_node("%CustomLabel"):
 			%CustomLabel.visible = true
+		open_settings(1)
+		if model_edit:
+			model_edit.grab_focus()
 		return
 	_apply_switch_model(meta)
 
@@ -764,21 +889,21 @@ func _show_empty_state() -> void:
 	transcript.clear()
 	var has_provider := settings != null and settings.provider_id() != ""
 	if has_provider:
-		append_system("Ready — describe a change. Enter sends · Shift+Enter new line.")
+		append_system("Ask anything. Enter sends · Shift+Enter new line · @ files · / commands")
 	else:
-		append_system("No connection yet — click the model chip to open Connection.")
+		append_system("Ask anything — open ⚙ to connect a provider. Enter sends · @ files")
 
 
 func append_system(text: String) -> void:
 	# Meta line — not a bubble.
-	transcript.append_text("[color=#6b7280][font_size=11]%s[/font_size][/color]\n" % _esc(text))
+	transcript.append_text("[color=#6b7280][font_size=11]%s[/font_size][/color]\n\n" % _esc(text))
 
 
 func append_user(text: String) -> void:
 	end_stream()
-	# User bubble: right / muted role.
+	# User bubble: right / muted role, spaced.
 	transcript.append_text(
-		"[right][color=#8b909a][font_size=11]You[/font_size][/color]\n[font_size=13]%s[/font_size][/right]\n"
+		"[right][color=#9aa3ad][font_size=11]You[/font_size][/color]\n[font_size=13]%s[/font_size][/right]\n\n"
 		% _esc(text)
 	)
 
@@ -788,7 +913,7 @@ func append_assistant(text: String) -> void:
 	var accent := _accent_hex()
 	# Assistant: left / accent role + body.
 	transcript.append_text(
-		"[color=%s][font_size=11]Lumen[/font_size][/color]\n[font_size=13]%s[/font_size]\n"
+		"[color=%s][font_size=11]Lumen[/font_size][/color]\n[font_size=13]%s[/font_size]\n\n"
 		% [accent, _esc(text)]
 	)
 
@@ -805,7 +930,7 @@ func append_stream(text: String) -> void:
 
 func end_stream() -> void:
 	if _stream_open:
-		transcript.append_text("[/font_size]\n")
+		transcript.append_text("[/font_size]\n\n")
 		_stream_open = false
 
 
@@ -829,8 +954,8 @@ func refresh_chats(query: String = "") -> void:
 		%ChatList.set_item_tooltip(idx, tip)
 		if id == _active_chat:
 			%ChatList.set_item_custom_fg_color(idx, Color(0.82, 0.9, 1.0))
-	if has_node("%ChatFold"):
-		%ChatFold.title = "Chats" if rows.is_empty() else "Chats  ·  %d" % rows.size()
+	if has_node("%HistoryButton"):
+		%HistoryButton.tooltip_text = "Chat history" if rows.is_empty() else "Chat history · %d" % rows.size()
 
 
 func _on_chat_selected(index: int) -> void:
@@ -960,7 +1085,7 @@ func refresh_cli_status() -> void:
 	_set_cli_button(%UseCodex, s.get("codex", {}), true)
 	_set_cli_button(%UseClaude, s.get("claude", {}), true)
 	_set_cli_button(%UseGemini, s.get("gemini", {}), true)
-	# C1: do not auto-expand AdvFold — Scan updates status only.
+	# Scan updates status only; settings stays where the user left it.
 
 
 func _set_cli_button(btn: Button, row: Variant, use_session: bool) -> void:

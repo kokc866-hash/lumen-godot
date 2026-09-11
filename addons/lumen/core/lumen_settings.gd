@@ -563,6 +563,7 @@ func _migrate_stale_limits() -> void:
 			project["max_tokens"] = 8192
 
 
+## Seed / fallback model ids only — never the sole discovery path when live list is possible.
 func catalog(id: String = "") -> PackedStringArray:
 	var pid := id if id != "" else provider_id()
 	match pid:
