@@ -4,7 +4,10 @@
 .lumen/cache/
 .lumen/snapshots/
 .lumen/secrets.json
+.lumen/project.json
+**/secrets.json
 user://
+user://lumen/
 *.os
 *.dblite
 .DS_Store
