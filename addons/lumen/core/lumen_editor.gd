@@ -11,8 +11,18 @@ static func ei():
 	return EditorInterface
 
 
+static func _dock_icon() -> Texture2D:
+	for path in ["res://addons/lumen/icon.png", "res://addons/lumen/icon.svg"]:
+		if not FileAccess.file_exists(path):
+			continue
+		var img := Image.new()
+		if img.load(path) == OK:
+			return ImageTexture.create_from_image(img)
+	return null
+
+
 static func attach_dock(plugin: EditorPlugin, content: Control) -> Node:
-	var icon: Texture2D = load("res://addons/lumen/icon.svg")
+	var icon: Texture2D = _dock_icon()
 	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
